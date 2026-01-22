@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>SaaS 智能中控台 v3.0</title>
+    <title>SaaS 智能中控台 v3.1 (Full Logic)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style>
@@ -13,6 +13,7 @@
         .view-section { display: none; }
         .active-section { display: block; }
         .img-thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; }
+        .loading-text { color: #6c757d; font-style: italic; padding: 20px; text-align: center; }
     </style>
 </head>
 <body>
@@ -69,24 +70,24 @@
                 <div class="tab-content">
                     <div class="tab-pane fade show active" id="tab-settings">
                         <div class="alert alert-info small"><i class="bi bi-info-circle"></i> 這是 AI 機器人的核心人設，修改後會立即生效。</div>
-                        <textarea id="edit-prompt" class="form-control mb-3" rows="10"></textarea>
+                        <textarea id="edit-prompt" class="form-control mb-3" rows="10" placeholder="輸入 System Prompt..."></textarea>
                         <button onclick="saveClientSettings()" class="btn btn-primary"><i class="bi bi-save"></i> 儲存設定</button>
                     </div>
 
                     <div class="tab-pane fade" id="tab-products">
                         <div class="d-flex justify-content-between mb-3">
                             <h5>商品列表</h5>
-                            <button onclick="openProductModal()" class="btn btn-success btn-sm"><i class="bi bi-plus-lg"></i> 新增</button>
+                            <button onclick="openProductModal()" class="btn btn-success btn-sm"><i class="bi bi-plus-lg"></i> 新增商品</button>
                         </div>
-                        <div id="product-list"></div>
+                        <div id="product-list" class="loading-text">請點擊上方標籤載入資料...</div>
                     </div>
 
                     <div class="tab-pane fade" id="tab-qa">
                         <div class="d-flex justify-content-between mb-3">
                             <h5>知識庫問答</h5>
-                            <button onclick="openQAModal()" class="btn btn-success btn-sm"><i class="bi bi-plus-lg"></i> 新增</button>
+                            <button onclick="openQAModal()" class="btn btn-success btn-sm"><i class="bi bi-plus-lg"></i> 新增問答</button>
                         </div>
-                        <div id="qa-list"></div>
+                        <div id="qa-list" class="loading-text">請點擊上方標籤載入資料...</div>
                     </div>
                 </div>
             </div>
@@ -105,10 +106,10 @@
                 <input type="hidden" id="prod-id">
                 <div class="mb-2"><label>商品名稱</label><input type="text" id="prod-name" class="form-control"></div>
                 <div class="mb-2"><label>價格</label><input type="number" id="prod-price" class="form-control"></div>
-                <div class="mb-2"><label>圖片網址</label><input type="text" id="prod-img" class="form-control"></div>
-                <div class="mb-2"><label>商品連結</label><input type="text" id="prod-url" class="form-control"></div>
+                <div class="mb-2"><label>圖片網址</label><input type="text" id="prod-img" class="form-control" placeholder="https://..."></div>
+                <div class="mb-2"><label>商品連結</label><input type="text" id="prod-url" class="form-control" placeholder="購買連結"></div>
                 <div class="mb-2"><label>描述</label><textarea id="prod-desc" class="form-control" rows="2"></textarea></div>
-                <div class="form-check form-switch">
+                <div class="form-check form-switch mt-3">
                     <input class="form-check-input" type="checkbox" id="prod-listing" checked>
                     <label class="form-check-label">是否上架</label>
                 </div>
@@ -127,24 +128,24 @@
             <div class="modal-header"><h5 class="modal-title">編輯問答</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
             <div class="modal-body">
                 <input type="hidden" id="qa-id">
-                <div class="mb-2"><label>問題 (Q)</label><input type="text" id="qa-question" class="form-control"></div>
-                <div class="mb-2"><label>回答 (A)</label><textarea id="qa-answer" class="form-control" rows="4"></textarea></div>
+                <div class="mb-2"><label class="fw-bold">客戶可能會問 (Question)</label><input type="text" id="qa-question" class="form-control" placeholder="例：營業時間？"></div>
+                <div class="mb-2"><label class="fw-bold">AI 應回答 (Answer)</label><textarea id="qa-answer" class="form-control" rows="5" placeholder="例：我們每天 10:00 - 22:00 營業。"></textarea></div>
             </div>
             <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
                 <button type="button" class="btn btn-primary" onclick="saveQA()">儲存</button>
             </div>
         </div>
     </div>
 </div>
 
-
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-    import { getFirestore, collection, getDocs, doc, updateDoc, addDoc, deleteDoc, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, doc, updateDoc, addDoc, deleteDoc, query, where, orderBy, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-    // 🔥【請替換】您的 Firebase Config
+    // 🔥 您的 Config
     const firebaseConfig = {
         apiKey: "AIzaSyAzPuojS5BQ8e74AlRoy2qWU5eeOrrPQpo", 
         authDomain: "branddecoder-saas.firebaseapp.com",
@@ -154,7 +155,6 @@
         appId: "..."
     };
 
-    // 🔥 超級管理員清單 (可以看到所有人)
     const SUPER_ADMINS = ["brand.decoderai@gmail.com", "kcluncle@gmail.com"];
 
     const app = initializeApp(firebaseConfig);
@@ -168,7 +168,7 @@
         qaModal = new bootstrap.Modal(document.getElementById('qaModal'));
     };
 
-    // --- 登入邏輯 (關鍵修改) ---
+    // --- 認證與視圖 ---
     window.handleLogin = () => signInWithPopup(auth, new GoogleAuthProvider()).catch(e => document.getElementById('login-msg').innerText = e.message);
     window.handleLogout = () => { signOut(auth); location.reload(); };
     window.showDashboard = () => switchView('dashboard-view');
@@ -182,14 +182,10 @@
         if (user) {
             document.getElementById('user-display').innerText = user.email;
             switchView('dashboard-view');
-            
-            // 判斷權限並載入對應資料
             if (SUPER_ADMINS.includes(user.email)) {
-                document.getElementById('role-badge').innerText = "超級管理員";
                 document.getElementById('role-badge').style.display = "inline-block";
                 await loadClientsForSuperAdmin();
             } else {
-                document.getElementById('role-badge').style.display = "none";
                 await loadClientForUser(user.email);
             }
         } else {
@@ -197,62 +193,47 @@
         }
     });
 
-    // --- A. 超級管理員：載入所有客戶 ---
+    // --- 載入列表 ---
     async function loadClientsForSuperAdmin() {
         const list = document.getElementById('client-list');
         document.getElementById('loader-list').style.display = 'block';
         list.innerHTML = "";
-        
         try {
             const snap = await getDocs(collection(db, "clients"));
             renderClientList(snap);
-        } catch(e) {
-            list.innerHTML = `<div class="alert alert-danger">讀取失敗：${e.message}</div>`;
-        }
+        } catch(e) { list.innerHTML = `<div class="alert alert-danger">${e.message}</div>`; }
         document.getElementById('loader-list').style.display = 'none';
     }
 
-    // --- B. 一般客戶：只載入自己的資料 ---
     async function loadClientForUser(email) {
         const list = document.getElementById('client-list');
         document.getElementById('loader-list').style.display = 'block';
         list.innerHTML = "";
-
         try {
-            // 🔥 關鍵查詢：只抓 adminEmail == 登入者 Email 的文件
             const q = query(collection(db, "clients"), where("adminEmail", "==", email));
             const snap = await getDocs(q);
-
             if (snap.empty) {
-                list.innerHTML = `<div class="col-12 text-center mt-5">
-                    <h4>⛔ 無權限存取</h4>
-                    <p class="text-muted">您的帳號 (${email}) 尚未被授權管理任何機器人。<br>請聯繫 Brand Decoder 管理員。</p>
-                </div>`;
+                list.innerHTML = `<div class="text-center mt-5"><h4>⛔ 無權限</h4><p>帳號 (${email}) 未授權。</p></div>`;
             } else {
                 renderClientList(snap);
             }
-        } catch(e) {
-             // 如果出現權限錯誤，通常是因為 Firestore Rules 擋住了
-             list.innerHTML = `<div class="alert alert-danger">權限不足或讀取錯誤：${e.message}</div>`;
-        }
+        } catch(e) { list.innerHTML = `<div class="alert alert-danger">${e.message}</div>`; }
         document.getElementById('loader-list').style.display = 'none';
     }
 
-    // --- 共用：渲染客戶列表 ---
     function renderClientList(snapshot) {
         const list = document.getElementById('client-list');
         snapshot.forEach(docSnap => {
             const data = docSnap.data();
-            const id = docSnap.id;
             list.innerHTML += `
             <div class="col-md-4">
-                <div class="card card-hover h-100" onclick="openClientDetail('${id}', '${data.name}')">
+                <div class="card card-hover h-100" onclick="openClientDetail('${docSnap.id}', '${data.name}')">
                     <div class="card-body cursor-pointer">
                         <div class="d-flex justify-content-between align-items-start">
                             <h5 class="fw-bold">${data.name || '未命名'}</h5>
                             ${data.adminEmail ? '<span class="badge bg-light text-dark border">'+data.adminEmail+'</span>' : ''}
                         </div>
-                        <small class="text-muted d-block mt-1">ID: ${id}</small>
+                        <small class="text-muted d-block mt-1">ID: ${docSnap.id}</small>
                         <div class="mt-3 text-truncate text-secondary small">
                             ${data.prompt ? data.prompt.substring(0,60)+'...' : '無設定 AI 人設'}
                         </div>
@@ -262,20 +243,15 @@
         });
     }
 
-    // --- 客戶詳情與 CRUD (保持不變) ---
-    // (這裡請保留原本的 openClientDetail, loadProducts, loadQA 以及所有 save/delete 函式)
-    // 為了完整性，我把 openClientDetail 放進來，其他的跟之前一樣
-
+    // --- 詳細頁面邏輯 ---
     window.openClientDetail = async (id, name) => {
         currentClientId = id;
         document.getElementById('detail-title').innerText = name;
         document.getElementById('detail-id').innerText = id;
         
-        // 清空舊資料
-        document.getElementById('product-list').innerHTML = '<p class="text-center text-muted py-3">點擊標籤載入...</p>';
-        document.getElementById('qa-list').innerHTML = '<p class="text-center text-muted py-3">點擊標籤載入...</p>';
-        
-        // 歸位到設定頁
+        // 重置 Tab
+        document.getElementById('product-list').innerHTML = '<p class="loading-text">點擊標籤載入...</p>';
+        document.getElementById('qa-list').innerHTML = '<p class="loading-text">點擊標籤載入...</p>';
         const trigger = document.querySelector('a[href="#tab-settings"]');
         bootstrap.Tab.getInstance(trigger)?.show() || new bootstrap.Tab(trigger).show();
 
@@ -283,76 +259,177 @@
 
         // 讀取 Prompt
         try {
-            // 直接讀取該文件 (這時候權限規則會生效)
-            // 這裡為了簡單，我們重新 query 一次 doc，或者您可以優化這段
-            // 注意：如果您是非 Admin，讀取非自己的 doc 會被 Firestore 規則擋下，這剛好是我們要的保護
-            const q = query(collection(db, "clients"), where("__name__", "==", id));
-            const snap = await getDocs(q);
-            if (!snap.empty) {
-                document.getElementById('edit-prompt').value = snap.docs[0].data().prompt || "";
+            // 使用 getDoc 讀取單一文件
+            const docSnap = await getDoc(doc(db, "clients", id));
+            if (docSnap.exists()) {
+                 document.getElementById('edit-prompt').value = docSnap.data().prompt || "";
             }
         } catch(e) { console.error(e); }
     };
-    
-    // ... (請將原本的 loadProducts, saveProduct, loadQA, saveQA 等函式貼回來這裡) ...
-    // 這裡我省略重複代碼，確保您直接使用上一版寫好的 CRUD 邏輯即可，
-    // 因為那些邏輯是認 currentClientId 的，只要進入了 Detail 頁面，邏輯都是通用的。
 
-    // 以下是 CRUD 的簡易版補完 (請確保您有貼上完整的)
     window.saveClientSettings = async () => {
         const val = document.getElementById('edit-prompt').value;
         await updateDoc(doc(db, "clients", currentClientId), { prompt: val });
         alert("✅ 設定已儲存");
     };
 
+    // --- 商品管理邏輯 (Products) ---
     window.loadProducts = async () => {
         const list = document.getElementById('product-list');
-        list.innerHTML = '載入中...';
-        // 注意：這裡查詢需要索引。如果是客戶登入，權限規則要允許他讀取自己的 products
-        const q = query(collection(db, "products"), where("clientId", "==", currentClientId), orderBy("updatedAt", "desc"));
+        list.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-primary"></div></div>';
         try {
+            // 查詢 products 集合中 clientId 符合的文件
+            const q = query(collection(db, "products"), where("clientId", "==", currentClientId));
             const snap = await getDocs(q);
-            // ... (渲染代碼同前) ...
-            if (snap.empty) { list.innerHTML = "無商品"; return; }
-            let html = '<table class="table">...</table>'; // 請貼回原本的渲染邏輯
-            // 這裡暫時用簡單版示意
-             let items = "";
-             snap.forEach(d => { 
-                 const p = d.data();
-                 items += `<div class="border p-2 mb-2 d-flex justify-content-between">
-                    <div><b>${p.name}</b> ($${p.price}) <span class="badge bg-${p.listing?'success':'secondary'}">${p.listing?'上架':'下架'}</span></div>
-                    <div>
-                        <button class="btn btn-sm btn-outline-primary" onclick='editProduct("${d.id}", ${JSON.stringify(p).replace(/'/g, "&#39;")})'>編輯</button>
-                        <button class="btn btn-sm btn-outline-danger" onclick="delProduct('${d.id}')">刪除</button>
-                    </div>
-                 </div>`; 
-             });
-             list.innerHTML = items;
+            
+            if (snap.empty) {
+                list.innerHTML = '<p class="text-center text-muted py-4">目前沒有商品，請點擊「新增」按鈕。</p>';
+                return;
+            }
 
-        } catch(e) { console.error(e); list.innerHTML = "讀取失敗: " + e.message; }
+            let html = '<div class="list-group">';
+            snap.forEach(d => {
+                const p = d.data();
+                html += `
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <img src="${p.image || 'https://via.placeholder.com/50'}" class="img-thumb me-3">
+                        <div>
+                            <div class="fw-bold">${p.name} <span class="badge bg-${p.listing?'success':'secondary'} ms-2">${p.listing?'上架中':'下架'}</span></div>
+                            <small class="text-muted">$${p.price}</small>
+                        </div>
+                    </div>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary me-2" onclick='editProduct("${d.id}", ${JSON.stringify(p).replace(/'/g, "&#39;")})'><i class="bi bi-pencil"></i></button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="delProduct('${d.id}')"><i class="bi bi-trash"></i></button>
+                    </div>
+                </div>`;
+            });
+            html += '</div>';
+            list.innerHTML = html;
+        } catch(e) { 
+            console.error(e); 
+            list.innerHTML = `<div class="alert alert-danger">讀取失敗: ${e.message}<br>請確認 Firestore 權限規則與索引。</div>`; 
+        }
     };
 
-    // (請務必補上 loadQA, openModal, saveProduct, saveQA 等函式)
-    // 這些函式不需要修改，直接沿用 v2.0 的即可。
+    window.openProductModal = () => { document.getElementById('prod-id').value=""; document.getElementById('prod-name').value=""; document.getElementById('prod-price').value=""; document.getElementById('prod-img').value=""; document.getElementById('prod-url').value=""; document.getElementById('prod-desc').value=""; prodModal.show(); };
     
-    // --- 補回其他必要函式 (從 v2.0 複製) ---
-    window.openProductModal = () => { document.getElementById('prod-id').value=""; prodModal.show(); };
-    window.openQAModal = () => { document.getElementById('qa-id').value=""; qaModal.show(); };
-    
-    // ... 略 ... (請填入完整邏輯)
-    
-    // 為了讓這段代碼能跑，我把關鍵的 editProduct 補上
     window.editProduct = (id, data) => {
         document.getElementById('prod-id').value = id;
         document.getElementById('prod-name').value = data.name;
         document.getElementById('prod-price').value = data.price;
-        // ... 其他欄位 ...
+        document.getElementById('prod-img').value = data.image || "";
+        document.getElementById('prod-url').value = data.url || "";
+        document.getElementById('prod-desc').value = data.desc || "";
+        document.getElementById('prod-listing').checked = data.listing !== false;
         prodModal.show();
-    }
-    // ...
+    };
+
+    window.saveProduct = async () => {
+        const id = document.getElementById('prod-id').value;
+        const data = {
+            clientId: currentClientId,
+            name: document.getElementById('prod-name').value,
+            price: Number(document.getElementById('prod-price').value),
+            image: document.getElementById('prod-img').value,
+            url: document.getElementById('prod-url').value,
+            desc: document.getElementById('prod-desc').value,
+            listing: document.getElementById('prod-listing').checked,
+            updatedAt: new Date()
+        };
+        try {
+            if (id) await updateDoc(doc(db, "products", id), data);
+            else await addDoc(collection(db, "products"), data);
+            prodModal.hide();
+            loadProducts();
+        } catch(e) { alert("儲存失敗: " + e.message); }
+    };
+
+    window.delProduct = async (id) => {
+        if(confirm("確定刪除此商品？")) {
+            await deleteDoc(doc(db, "products", id));
+            loadProducts();
+        }
+    };
+
+    // --- 知識庫邏輯 (QA) - 這是之前缺失的部分 ---
+    window.loadQA = async () => {
+        const list = document.getElementById('qa-list');
+        list.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-primary"></div></div>';
+        try {
+            // 查詢 knowledge_base 集合
+            const q = query(collection(db, "knowledge_base"), where("clientId", "==", currentClientId));
+            const snap = await getDocs(q);
+
+            if (snap.empty) {
+                list.innerHTML = '<p class="text-center text-muted py-4">目前沒有問答資料，請點擊「新增」按鈕。</p>';
+                return;
+            }
+
+            let html = '<div class="accordion" id="qaAccordion">';
+            let idx = 0;
+            snap.forEach(d => {
+                const qa = d.data();
+                idx++;
+                html += `
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse${idx}">
+                            <span class="fw-bold me-2">Q:</span> ${qa.question}
+                        </button>
+                    </h2>
+                    <div id="collapse${idx}" class="accordion-collapse collapse" data-bs-parent="#qaAccordion">
+                        <div class="accordion-body bg-light">
+                            <div class="mb-3"><strong>A:</strong> ${qa.answer}</div>
+                            <div class="text-end">
+                                <button class="btn btn-sm btn-outline-primary me-2" onclick='editQA("${d.id}", ${JSON.stringify(qa).replace(/'/g, "&#39;")})'>編輯</button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="delQA('${d.id}')">刪除</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            });
+            html += '</div>';
+            list.innerHTML = html;
+        } catch(e) { 
+            console.error(e); 
+            list.innerHTML = `<div class="alert alert-danger">讀取失敗: ${e.message}</div>`; 
+        }
+    };
+
+    window.openQAModal = () => { document.getElementById('qa-id').value=""; document.getElementById('qa-question').value=""; document.getElementById('qa-answer').value=""; qaModal.show(); };
+    
+    window.editQA = (id, data) => {
+        document.getElementById('qa-id').value = id;
+        document.getElementById('qa-question').value = data.question;
+        document.getElementById('qa-answer').value = data.answer;
+        qaModal.show();
+    };
+
+    window.saveQA = async () => {
+        const id = document.getElementById('qa-id').value;
+        const data = {
+            clientId: currentClientId,
+            question: document.getElementById('qa-question').value,
+            answer: document.getElementById('qa-answer').value,
+            updatedAt: new Date()
+        };
+        try {
+            if (id) await updateDoc(doc(db, "knowledge_base", id), data);
+            else await addDoc(collection(db, "knowledge_base"), data);
+            qaModal.hide();
+            loadQA();
+        } catch(e) { alert("儲存失敗: " + e.message); }
+    };
+
+    window.delQA = async (id) => {
+        if(confirm("確定刪除此問答？")) {
+            await deleteDoc(doc(db, "knowledge_base", id));
+            loadQA();
+        }
+    };
 
 </script>
 </body>
 </html>
-
-
