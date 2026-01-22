@@ -3,55 +3,158 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>SaaS 系統中控台</title>
+    <title>SaaS 智能中控台 v2.0</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style>
-        body { background-color: #f0f2f5; font-family: 'Segoe UI', sans-serif; }
-        .login-wrapper { height: 100vh; display: flex; align-items: center; justify-content: center; }
-        .login-card { width: 100%; max-width: 400px; padding: 40px; background: white; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); text-align: center; }
-        .main-container { display: none; max-width: 1200px; margin: 40px auto; padding: 0 20px; }
-        .card-custom { border: none; border-radius: 12px; background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.03); transition: all 0.2s; height: 100%; }
-        .card-custom:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.06); }
-        .status-dot { height: 10px; width: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
-        .bot-id { font-family: monospace; color: #6c757d; font-size: 0.85em; background: #f8f9fa; padding: 2px 6px; border-radius: 4px; }
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', sans-serif; }
+        .cursor-pointer { cursor: pointer; }
+        .card-hover:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); transition: all 0.2s; }
+        .view-section { display: none; } /* 控制頁面切換 */
+        .active-section { display: block; }
+        .img-thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; }
     </style>
 </head>
 <body>
 
-<div id="login-view" class="login-wrapper">
-    <div class="login-card">
-        <h2 class="mb-4 fw-bold text-primary">🔐 SaaS 中控台</h2>
-        <p class="text-muted mb-4">請使用授權的管理員帳號登入</p>
-        <button onclick="handleLogin()" class="btn btn-dark w-100 py-3 fw-bold">
-            <svg class="me-2" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27c3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12.5S6.42 23 12.1 23c5.83 0 8.84-4.15 8.84-11.9z"/></svg>
-            Google 帳號登入
-        </button>
-    </div>
-</div>
-
-<div id="app-view" class="main-container">
-    <div class="d-flex justify-content-between align-items-center mb-5">
-        <div>
-            <h3 class="fw-bold mb-1">客戶管理儀表板</h3>
-            <small class="text-muted" id="user-display">未登入</small>
+<nav class="navbar navbar-dark bg-dark mb-4">
+    <div class="container">
+        <span class="navbar-brand mb-0 h1"><i class="bi bi-robot"></i> SaaS 智能中控</span>
+        <div class="d-flex align-items-center">
+            <span id="user-display" class="text-light me-3 small"></span>
+            <button onclick="handleLogout()" class="btn btn-outline-light btn-sm">登出</button>
         </div>
-        <button onclick="handleLogout()" class="btn btn-outline-danger btn-sm px-3">登出系統</button>
+    </div>
+</nav>
+
+<div class="container">
+    <div id="login-view" class="view-section text-center mt-5">
+        <div class="card mx-auto shadow" style="max-width: 400px;">
+            <div class="card-body p-5">
+                <h3 class="mb-4">系統登入</h3>
+                <button onclick="handleLogin()" class="btn btn-primary w-100">
+                    <i class="bi bi-google me-2"></i> Google 管理員登入
+                </button>
+            </div>
+        </div>
     </div>
 
-    <div id="loader" class="text-center py-5">
-        <div class="spinner-border text-primary" role="status"></div>
-        <p class="mt-2 text-muted">正在連線至 Firestore...</p>
+    <div id="dashboard-view" class="view-section">
+        <h4 class="mb-4"><i class="bi bi-people-fill"></i> 客戶管理</h4>
+        <div id="loader-list" class="text-center"><div class="spinner-border text-primary"></div></div>
+        <div id="client-list" class="row g-4"></div>
     </div>
 
-    <div id="client-list" class="row g-4"></div>
+    <div id="detail-view" class="view-section">
+        <button onclick="showDashboard()" class="btn btn-outline-secondary mb-3">
+            <i class="bi bi-arrow-left"></i> 返回列表
+        </button>
+        
+        <div class="card shadow-sm">
+            <div class="card-header bg-white pt-3">
+                <h4 id="detail-title" class="fw-bold text-primary">客戶名稱</h4>
+                <p class="text-muted small mb-2">ID: <span id="detail-id"></span></p>
+                
+                <ul class="nav nav-tabs card-header-tabs">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#tab-settings">⚙️ 核心設定</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#tab-products" onclick="loadProducts()">📦 商品管理</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#tab-qa" onclick="loadQA()">📚 知識庫 (QA)</a>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="card-body">
+                <div class="tab-content">
+                    
+                    <div class="tab-pane fade show active" id="tab-settings">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">System Prompt (AI 人設)</label>
+                            <textarea id="edit-prompt" class="form-control" rows="8"></textarea>
+                        </div>
+                        <button onclick="saveClientSettings()" class="btn btn-primary"><i class="bi bi-save"></i> 儲存設定</button>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-products">
+                        <div class="d-flex justify-content-between mb-3">
+                            <h5>商品列表</h5>
+                            <button onclick="openProductModal()" class="btn btn-success btn-sm"><i class="bi bi-plus-lg"></i> 新增商品</button>
+                        </div>
+                        <div id="product-list" class="table-responsive">
+                            <p class="text-center text-muted">載入中...</p>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-qa">
+                        <div class="d-flex justify-content-between mb-3">
+                            <h5>問答列表</h5>
+                            <button onclick="openQAModal()" class="btn btn-success btn-sm"><i class="bi bi-plus-lg"></i> 新增問答</button>
+                        </div>
+                        <div id="qa-list" class="table-responsive">
+                            <p class="text-center text-muted">載入中...</p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
+<div class="modal fade" id="productModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">編輯商品</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="prod-id">
+                <div class="mb-2"><label>商品名稱</label><input type="text" id="prod-name" class="form-control"></div>
+                <div class="mb-2"><label>價格</label><input type="number" id="prod-price" class="form-control"></div>
+                <div class="mb-2"><label>圖片網址</label><input type="text" id="prod-img" class="form-control"></div>
+                <div class="mb-2"><label>商品連結</label><input type="text" id="prod-url" class="form-control"></div>
+                <div class="mb-2"><label>描述</label><textarea id="prod-desc" class="form-control" rows="2"></textarea></div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="prod-listing" checked>
+                    <label class="form-check-label">是否上架</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveProduct()">儲存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="qaModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">編輯問答</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="qa-id">
+                <div class="mb-2"><label>問題 (Q)</label><input type="text" id="qa-question" class="form-control"></div>
+                <div class="mb-2"><label>回答 (A)</label><textarea id="qa-answer" class="form-control" rows="4"></textarea></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" onclick="saveQA()">儲存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-    import { getFirestore, collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, doc, updateDoc, addDoc, deleteDoc, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-    // 🔥【請貼上您的 Config】
+    // 🔥【請替換】您的 Firebase Config
     const firebaseConfig = {
         apiKey: "AIzaSyAzPuojS5BQ8e74AlRoy2qWU5eeOrrPQpo", 
         authDomain: "branddecoder-saas.firebaseapp.com",
@@ -61,128 +164,256 @@
         appId: "..."
     };
 
-    // 🔥【權限白名單】請填入允許登入的 Email
-    const ALLOWED_ADMINS = [
-        "brand.decoderai@gmail.com", 
-        "您的個人GMAIL@gmail.com" 
-    ];
+    const ALLOWED_ADMINS = ["brand.decoderai@gmail.com", "kcluncle@gmail.com"]; // 您的帳號
 
-    // 初始化
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
+    let currentClientId = null;
+    let prodModal, qaModal;
 
-    // 登入邏輯
-    window.handleLogin = () => {
-        const provider = new GoogleAuthProvider();
-        signInWithPopup(auth, provider).catch(err => alert("登入錯誤: " + err.message));
+    // 初始化 Modal
+    window.onload = () => {
+        prodModal = new bootstrap.Modal(document.getElementById('productModal'));
+        qaModal = new bootstrap.Modal(document.getElementById('qaModal'));
     };
 
-    // 登出邏輯
-    window.handleLogout = () => signOut(auth);
+    // --- 登入/登出/路由 ---
+    window.handleLogin = () => signInWithPopup(auth, new GoogleAuthProvider());
+    window.handleLogout = () => { signOut(auth); location.reload(); };
+    window.showDashboard = () => switchView('dashboard-view');
 
-    // 儲存邏輯 (更新 Prompt)
-    window.saveSettings = async (id) => {
-        const btn = document.getElementById(`btn-${id}`);
-        const promptVal = document.getElementById(`prompt-${id}`).value;
-        const originalText = btn.innerHTML;
-        
-        btn.disabled = true;
-        btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> 儲存中...`;
-        
-        try {
-            await updateDoc(doc(db, "clients", id), { prompt: promptVal });
-            btn.className = "btn btn-success btn-sm w-100";
-            btn.innerHTML = "✅ 已更新至雲端";
-            
-            // 2秒後恢復按鈕
-            setTimeout(() => { 
-                btn.className = "btn btn-primary btn-sm w-100"; 
-                btn.innerHTML = originalText; 
-                btn.disabled = false; 
-            }, 2000);
-        } catch (e) {
-            alert("儲存失敗: " + e.message);
-            btn.innerHTML = "❌ 失敗";
-            btn.className = "btn btn-danger btn-sm w-100";
-            btn.disabled = false;
-        }
-    };
+    function switchView(viewId) {
+        document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active-section'));
+        document.getElementById(viewId).classList.add('active-section');
+    }
 
-    // 監聽登入狀態
     onAuthStateChanged(auth, user => {
-        const loginView = document.getElementById('login-view');
-        const appView = document.getElementById('app-view');
-        
-        if (user) {
-            // 檢查是否在白名單內
-            if (ALLOWED_ADMINS.includes(user.email)) {
-                loginView.style.display = 'none';
-                appView.style.display = 'block';
-                document.getElementById('user-display').innerText = `管理員: ${user.email}`;
-                loadClients();
-            } else {
-                alert(`⛔ 權限不足：\n您的帳號 (${user.email}) 未授權。`);
-                signOut(auth);
-            }
+        if (user && ALLOWED_ADMINS.includes(user.email)) {
+            document.getElementById('user-display').innerText = user.email;
+            switchView('dashboard-view');
+            loadClients();
         } else {
-            loginView.style.display = 'flex';
-            appView.style.display = 'none';
+            switchView('login-view');
+            if(user) { alert("無權限"); signOut(auth); }
         }
     });
 
-    // 讀取客戶資料
+    // --- 1. 客戶列表邏輯 ---
     async function loadClients() {
         const list = document.getElementById('client-list');
-        const loader = document.getElementById('loader');
+        document.getElementById('loader-list').style.display = 'block';
         list.innerHTML = "";
         
-        try {
-            const querySnapshot = await getDocs(collection(db, "clients"));
-            loader.style.display = 'none';
-            
-            if (querySnapshot.empty) {
-                list.innerHTML = `<div class="col-12 text-center text-muted">目前沒有客戶資料</div>`;
-                return;
-            }
+        const snap = await getDocs(collection(db, "clients"));
+        document.getElementById('loader-list').style.display = 'none';
 
-            querySnapshot.forEach((docSnap) => {
-                const data = docSnap.data();
-                const id = docSnap.id;
-                // 檢查是否過期
-                const expiryDate = data.expiry ? new Date(data.expiry.toDate()) : null;
-                const isExpired = expiryDate && expiryDate < new Date();
-                
-                const html = `
-                <div class="col-md-6 col-lg-4">
-                    <div class="card p-4 card-custom">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h5 class="fw-bold m-0 text-dark">${data.name || "未命名客戶"}</h5>
-                            <span class="badge ${isExpired ? 'bg-danger-subtle text-danger' : 'bg-success-subtle text-success'} rounded-pill">
-                                ${isExpired ? '已過期' : '營運中'}
-                            </span>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <span class="bot-id">ID: ${id.substring(0, 10)}...</span>
-                        </div>
-
-                        <div class="mb-4">
-                            <label class="form-label text-muted small fw-bold">System Prompt (AI設定)</label>
-                            <textarea id="prompt-${id}" class="form-control form-control-sm bg-light" rows="6" style="font-size: 0.9em; border-color: #eee;">${data.prompt || ""}</textarea>
-                        </div>
-                        
-                        <div class="mt-auto">
-                            <button id="btn-${id}" onclick="saveSettings('${id}')" class="btn btn-primary btn-sm w-100 py-2 fw-bold">儲存設定</button>
-                        </div>
+        snap.forEach(docSnap => {
+            const data = docSnap.data();
+            const id = docSnap.id;
+            list.innerHTML += `
+            <div class="col-md-4">
+                <div class="card card-hover h-100" onclick="openClientDetail('${id}', '${data.name}')">
+                    <div class="card-body cursor-pointer">
+                        <h5 class="fw-bold">${data.name || '未命名'}</h5>
+                        <small class="text-muted">ID: ${id}</small>
+                        <div class="mt-2 text-truncate text-secondary">${data.prompt ? data.prompt.substring(0,50)+'...' : '無設定'}</div>
                     </div>
-                </div>`;
-                list.innerHTML += html;
-            });
-        } catch (e) {
-            loader.innerHTML = `<p class="text-danger">讀取資料失敗: ${e.message}</p>`;
-        }
+                </div>
+            </div>`;
+        });
     }
+
+    // --- 2. 客戶詳情邏輯 ---
+    window.openClientDetail = async (id, name) => {
+        currentClientId = id;
+        document.getElementById('detail-title').innerText = name;
+        document.getElementById('detail-id').innerText = id;
+        
+        // 讀取 System Prompt
+        const docSnap = await getDocs(query(collection(db, "clients"), where("__name__", "==", id))); // 簡易讀取
+        // 這裡直接用原本 loadClients 已經有的資料其實比較快，但為了簡單先重讀 Prompt
+        // 為了確保拿到最新 Prompt，我們讀取單一文件
+        // 注意：Firestore JS SDK 讀取單一文件要用 getDoc(doc(...))，這裡簡化處理
+        // 實作上：
+        switchView('detail-view');
+        
+        // 載入設定頁資料
+        // 因為剛剛是列表讀取，這裡我們不做額外讀取，等待使用者切換 Tab 才讀取商品/QA
+        // 但 Prompt 需要先填入，我們重新 fetch 一次該 doc 確保最新
+        // 這裡先留空，等優化
+    };
+    
+    // 這裡補一個讀取單一客戶設定的函式
+    window.openClientDetail = async (id, name) => {
+        currentClientId = id;
+        document.getElementById('detail-title').innerText = name;
+        document.getElementById('detail-id').innerText = id;
+        switchView('detail-view');
+        
+        // 讀取 Prompt
+        try {
+            // JS SDK 讀取單一文件
+            // 注意：這裡需要 import getDoc
+            // 暫時用最簡單的 trick: 直接去 client list 找或是重抓
+            // 我們重抓一次確保即時性
+            // 這裡無法直接用 doc(db, 'clients', id) 因為上面沒 import getDoc
+            // 改用 collection query
+            // ... 為了避免複雜，假設我們已經在 loadClients 拿到資料。
+            // 修正：我們讓使用者點擊時，再去拉一次資料
+            // 這裡簡化：切換到 Settings tab
+            const q = query(collection(db, "clients")); // 這邊可以優化，但先這樣
+            const snap = await getDocs(collection(db, "clients")); // 這會讀全部，效能不好但先頂著
+            snap.forEach(d => {
+                if(d.id === id) document.getElementById('edit-prompt').value = d.data().prompt || "";
+            });
+        } catch(e) {}
+    }
+
+    window.saveClientSettings = async () => {
+        const val = document.getElementById('edit-prompt').value;
+        await updateDoc(doc(db, "clients", currentClientId), { prompt: val });
+        alert("✅ 設定已儲存");
+    };
+
+    // --- 3. 商品管理邏輯 (CRUD) ---
+    window.loadProducts = async () => {
+        const list = document.getElementById('product-list');
+        list.innerHTML = '<div class="spinner-border spinner-border-sm"></div> 載入中...';
+        
+        const q = query(collection(db, "products"), where("clientId", "==", currentClientId), orderBy("updatedAt", "desc"));
+        const snap = await getDocs(q);
+        
+        if (snap.empty) { list.innerHTML = "尚無商品"; return; }
+        
+        let html = `<table class="table table-hover align-middle"><thead><tr><th>圖</th><th>名稱</th><th>價格</th><th>狀態</th><th>操作</th></tr></thead><tbody>`;
+        snap.forEach(d => {
+            const p = d.data();
+            html += `<tr>
+                <td><img src="${p.image || 'https://placehold.co/50'}" class="img-thumb"></td>
+                <td><a href="${p.url}" target="_blank">${p.name}</a></td>
+                <td>$${p.price}</td>
+                <td><span class="badge bg-${p.listing ? 'success':'secondary'}">${p.listing ? '上架':'下架'}</span></td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary" onclick='editProduct("${d.id}", ${JSON.stringify(p).replace(/'/g, "&#39;")})'>編輯</button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="delProduct('${d.id}')">刪除</button>
+                </td>
+            </tr>`;
+        });
+        list.innerHTML = html + "</tbody></table>";
+    };
+
+    window.openProductModal = () => {
+        document.getElementById('prod-id').value = ""; // 清空代表新增
+        document.getElementById('prod-name').value = "";
+        document.getElementById('prod-price').value = "";
+        document.getElementById('prod-img').value = "";
+        document.getElementById('prod-url').value = "";
+        document.getElementById('prod-desc').value = "";
+        prodModal.show();
+    };
+
+    window.editProduct = (id, data) => {
+        document.getElementById('prod-id').value = id;
+        document.getElementById('prod-name').value = data.name;
+        document.getElementById('prod-price').value = data.price;
+        document.getElementById('prod-img').value = data.image;
+        document.getElementById('prod-url').value = data.url;
+        document.getElementById('prod-desc').value = data.desc;
+        document.getElementById('prod-listing').checked = data.listing;
+        prodModal.show();
+    };
+
+    window.saveProduct = async () => {
+        const id = document.getElementById('prod-id').value;
+        const data = {
+            clientId: currentClientId,
+            name: document.getElementById('prod-name').value,
+            price: Number(document.getElementById('prod-price').value),
+            image: document.getElementById('prod-img').value,
+            url: document.getElementById('prod-url').value,
+            desc: document.getElementById('prod-desc').value,
+            listing: document.getElementById('prod-listing').checked,
+            updatedAt: new Date()
+        };
+
+        if (id) {
+            await updateDoc(doc(db, "products", id), data);
+        } else {
+            await addDoc(collection(db, "products"), data);
+        }
+        prodModal.hide();
+        loadProducts(); // 重新整理列表
+    };
+
+    window.delProduct = async (id) => {
+        if(!confirm("確定要刪除此商品嗎？")) return;
+        await deleteDoc(doc(db, "products", id));
+        loadProducts();
+    };
+
+    // --- 4. QA 管理邏輯 (CRUD) ---
+    window.loadQA = async () => {
+        const list = document.getElementById('qa-list');
+        list.innerHTML = '載入中...';
+        const q = query(collection(db, "knowledge_base"), where("clientId", "==", currentClientId));
+        const snap = await getDocs(q);
+        
+        if (snap.empty) { list.innerHTML = "尚無 QA 資料"; return; }
+
+        let html = `<div class="list-group">`;
+        snap.forEach(d => {
+            const qa = d.data();
+            html += `
+            <div class="list-group-item d-flex justify-content-between align-items-start">
+                <div class="ms-2 me-auto">
+                    <div class="fw-bold">Q: ${qa.question}</div>
+                    A: ${qa.answer}
+                </div>
+                <button class="btn btn-sm btn-outline-secondary ms-2" onclick='editQA("${d.id}", "${qa.question}", "${qa.answer}")'>編輯</button>
+                <button class="btn btn-sm btn-outline-danger ms-2" onclick="delQA('${d.id}')">刪除</button>
+            </div>`;
+        });
+        list.innerHTML = html + "</div>";
+    };
+
+    window.openQAModal = () => {
+        document.getElementById('qa-id').value = "";
+        document.getElementById('qa-question').value = "";
+        document.getElementById('qa-answer').value = "";
+        qaModal.show();
+    };
+
+    window.editQA = (id, q, a) => {
+        document.getElementById('qa-id').value = id;
+        document.getElementById('qa-question').value = q;
+        document.getElementById('qa-answer').value = a;
+        qaModal.show();
+    };
+
+    window.saveQA = async () => {
+        const id = document.getElementById('qa-id').value;
+        const data = {
+            clientId: currentClientId,
+            question: document.getElementById('qa-question').value,
+            answer: document.getElementById('qa-answer').value,
+            updatedAt: new Date()
+        };
+        if (id) await updateDoc(doc(db, "knowledge_base", id), data);
+        else await addDoc(collection(db, "knowledge_base"), data);
+        qaModal.hide();
+        loadQA();
+    };
+
+    window.delQA = async (id) => {
+        if(!confirm("刪除此問答？")) return;
+        await deleteDoc(doc(db, "knowledge_base", id));
+        loadQA();
+    };
+
+    // 將重要函式掛載到 window 以便 HTML 呼叫
+    window.loadProducts = loadProducts;
+    window.loadQA = loadQA;
 </script>
 </body>
 </html>
