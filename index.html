@@ -225,23 +225,40 @@
     }
 
     // --- 2. 客戶詳情邏輯 ---
+    // --- 2. 客戶詳情邏輯 (修正版：自動重置分頁與資料) ---
     window.openClientDetail = async (id, name) => {
-        currentClientId = id;
+        currentClientId = id; // 更新當前客戶 ID
         document.getElementById('detail-title').innerText = name;
         document.getElementById('detail-id').innerText = id;
         
-        // 讀取 System Prompt
-        const docSnap = await getDocs(query(collection(db, "clients"), where("__name__", "==", id))); // 簡易讀取
-        // 這裡直接用原本 loadClients 已經有的資料其實比較快，但為了簡單先重讀 Prompt
-        // 為了確保拿到最新 Prompt，我們讀取單一文件
-        // 注意：Firestore JS SDK 讀取單一文件要用 getDoc(doc(...))，這裡簡化處理
-        // 實作上：
+        // 🔥 修正 1：清空上一個客戶的殘留資料 (視覺防呆)
+        document.getElementById('product-list').innerHTML = '<p class="text-center text-muted py-3">請點擊上方標籤載入資料...</p>';
+        document.getElementById('qa-list').innerHTML = '<p class="text-center text-muted py-3">請點擊上方標籤載入資料...</p>';
+        document.getElementById('edit-prompt').value = "載入中...";
+
+        // 🔥 修正 2：強制切換回第一個分頁 (設定頁)
+        // 這樣迫使使用者如果要看商品，必須手動點一下標籤，進而觸發 loadProducts()
+        const settingsTabTrigger = document.querySelector('a[href="#tab-settings"]');
+        const tabInstance = new bootstrap.Tab(settingsTabTrigger);
+        tabInstance.show();
+
         switchView('detail-view');
         
-        // 載入設定頁資料
-        // 因為剛剛是列表讀取，這裡我們不做額外讀取，等待使用者切換 Tab 才讀取商品/QA
-        // 但 Prompt 需要先填入，我們重新 fetch 一次該 doc 確保最新
-        // 這裡先留空，等優化
+        // 重新讀取 System Prompt
+        try {
+            // 這裡我們用一個小技巧：直接從客戶列表的暫存資料抓，或是重新 query 一次
+            // 為了確保資料最新，我們還是 query 一次
+            const q = query(collection(db, "clients"), where("__name__", "==", id));
+            const snap = await getDocs(q);
+            if (!snap.empty) {
+                document.getElementById('edit-prompt').value = snap.docs[0].data().prompt || "";
+            } else {
+                document.getElementById('edit-prompt').value = "";
+            }
+        } catch(e) {
+            console.error(e);
+            document.getElementById('edit-prompt').value = "讀取失敗";
+        }
     };
     
     // 這裡補一個讀取單一客戶設定的函式
@@ -417,3 +434,4 @@
 </script>
 </body>
 </html>
+
