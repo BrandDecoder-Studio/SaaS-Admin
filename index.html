@@ -3,91 +3,151 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>SaaS 智能中控台 v3.1 (Full Logic)</title>
+    <title>SaaS 智能中控台 v4.0 (Full Cloud CRM)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style>
-        body { background-color: #f8f9fa; font-family: 'Segoe UI', sans-serif; }
+        body { background-color: #f0f2f5; font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; }
         .cursor-pointer { cursor: pointer; }
-        .card-hover:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); transition: all 0.2s; }
+        .card-hover { transition: all 0.2s; border: none; }
+        .card-hover:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
         .view-section { display: none; }
-        .active-section { display: block; }
-        .img-thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; }
-        .loading-text { color: #6c757d; font-style: italic; padding: 20px; text-align: center; }
+        .active-section { display: block; animation: fadeIn 0.3s; }
+        .img-thumb { width: 48px; height: 48px; object-fit: cover; border-radius: 8px; border: 1px solid #eee; }
+        .loading-text { color: #6c757d; font-style: italic; padding: 30px; text-align: center; }
+        
+        /* 狀態燈號 */
+        .status-dot { height: 10px; width: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        .bg-active { background-color: #28a745; box-shadow: 0 0 5px #28a745; }
+        .bg-expired { background-color: #dc3545; }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
 </head>
 <body>
 
-<nav class="navbar navbar-dark bg-dark mb-4">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow-sm">
     <div class="container">
-        <span class="navbar-brand mb-0 h1"><i class="bi bi-robot"></i> SaaS 智能中控</span>
+        <span class="navbar-brand mb-0 h1"><i class="bi bi-cpu-fill text-warning"></i> SaaS 智能中控 <span class="badge bg-secondary" style="font-size:0.5em; vertical-align:top;">v4.0</span></span>
         <div class="d-flex align-items-center">
-            <span id="user-display" class="text-light me-3 small"></span>
-            <span id="role-badge" class="badge bg-warning text-dark me-3" style="display:none">Admin</span>
+            <span id="user-display" class="text-light me-3 small opacity-75"></span>
+            <span id="role-badge" class="badge bg-warning text-dark me-3" style="display:none">Super Admin</span>
             <button onclick="handleLogout()" class="btn btn-outline-light btn-sm">登出</button>
         </div>
     </div>
 </nav>
 
-<div class="container">
+<div class="container pb-5">
     <div id="login-view" class="view-section text-center mt-5">
-        <div class="card mx-auto shadow" style="max-width: 400px;">
+        <div class="card mx-auto shadow-lg border-0" style="max-width: 400px; border-radius: 15px;">
             <div class="card-body p-5">
-                <h3 class="mb-4">系統登入</h3>
-                <p class="text-muted mb-4">請使用 Google 帳號登入</p>
-                <button onclick="handleLogin()" class="btn btn-primary w-100">
+                <div class="mb-4">
+                    <i class="bi bi-shield-lock-fill text-primary" style="font-size: 3rem;"></i>
+                </div>
+                <h3 class="mb-4 fw-bold">系統登入</h3>
+                <p class="text-muted mb-4">請使用授權的 Google 帳號存取後台</p>
+                <button onclick="handleLogin()" class="btn btn-primary w-100 py-2 rounded-pill shadow-sm">
                     <i class="bi bi-google me-2"></i> Google 登入
                 </button>
-                <div id="login-msg" class="mt-3 text-danger"></div>
+                <div id="login-msg" class="mt-3 text-danger small"></div>
             </div>
         </div>
     </div>
 
     <div id="dashboard-view" class="view-section">
-        <h4 class="mb-4"><i class="bi bi-speedometer2"></i> 管理儀表板</h4>
-        <div id="loader-list" class="text-center"><div class="spinner-border text-primary"></div></div>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="fw-bold"><i class="bi bi-grid-fill text-primary"></i> 客戶管理儀表板</h4>
+            <button class="btn btn-sm btn-outline-secondary" onclick="location.reload()"><i class="bi bi-arrow-clockwise"></i> 重新整理</button>
+        </div>
+        
+        <div id="loader-list" class="text-center py-5"><div class="spinner-border text-primary"></div></div>
         <div id="client-list" class="row g-4"></div>
     </div>
 
     <div id="detail-view" class="view-section">
-        <button onclick="showDashboard()" class="btn btn-outline-secondary mb-3">
-            <i class="bi bi-arrow-left"></i> 返回列表
+        <button onclick="showDashboard()" class="btn btn-link text-decoration-none mb-3 text-secondary ps-0">
+            <i class="bi bi-arrow-left"></i> 返回客戶列表
         </button>
         
-        <div class="card shadow-sm">
-            <div class="card-header bg-white pt-3">
-                <h4 id="detail-title" class="fw-bold text-primary">客戶名稱</h4>
-                <p class="text-muted small mb-2">ID: <span id="detail-id"></span></p>
+        <div class="card shadow border-0" style="border-radius: 12px; overflow: hidden;">
+            <div class="card-header bg-white pt-4 pb-0 border-bottom-0">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <h3 id="detail-title" class="fw-bold text-dark mb-1">客戶名稱</h3>
+                        <p class="text-muted small mb-0 font-monospace">ID: <span id="detail-id"></span></p>
+                    </div>
+                    <div class="text-end">
+                         <span class="badge bg-light text-dark border me-1" id="badge-ai">AI 大腦</span>
+                         <span class="badge bg-light text-dark border me-1" id="badge-vision">鷹眼</span>
+                         <span class="badge bg-light text-dark border" id="badge-showcase">導購</span>
+                    </div>
+                </div>
                 
-                <ul class="nav nav-tabs card-header-tabs">
-                    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-settings">⚙️ 核心設定</a></li>
-                    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-products" onclick="loadProducts()">📦 商品管理</a></li>
-                    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-qa" onclick="loadQA()">📚 知識庫 (QA)</a></li>
+                <ul class="nav nav-tabs card-header-tabs" style="margin-bottom: -1px;">
+                    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-settings"><i class="bi bi-gear"></i> 設定</a></li>
+                    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-members" onclick="loadMembers()"><i class="bi bi-people"></i> 會員 (CRM)</a></li>
+                    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-leads" onclick="loadLeads()"><i class="bi bi-lightning-charge"></i> 商機雷達</a></li>
+                    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-products" onclick="loadProducts()"><i class="bi bi-box-seam"></i> 商品</a></li>
+                    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-qa" onclick="loadQA()"><i class="bi bi-chat-text"></i> 知識庫</a></li>
                 </ul>
             </div>
             
-            <div class="card-body">
+            <div class="card-body bg-light p-4">
                 <div class="tab-content">
                     <div class="tab-pane fade show active" id="tab-settings">
-                        <div class="alert alert-info small"><i class="bi bi-info-circle"></i> 這是 AI 機器人的核心人設，修改後會立即生效。</div>
-                        <textarea id="edit-prompt" class="form-control mb-3" rows="10" placeholder="輸入 System Prompt..."></textarea>
-                        <button onclick="saveClientSettings()" class="btn btn-primary"><i class="bi bi-save"></i> 儲存設定</button>
+                        <div class="row">
+                            <div class="col-md-8">
+                                <label class="form-label fw-bold">AI 系統人設 (System Prompt)</label>
+                                <textarea id="edit-prompt" class="form-control mb-3 shadow-sm" rows="12" placeholder="輸入 System Prompt..."></textarea>
+                                <button onclick="saveClientSettings()" class="btn btn-primary"><i class="bi bi-save"></i> 儲存人設</button>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card border-0 shadow-sm mb-3">
+                                    <div class="card-body">
+                                        <h6 class="fw-bold mb-3">系統狀態</h6>
+                                        <div class="mb-2"><small class="text-muted">API Key:</small> <span id="status-apikey" class="badge">檢查中</span></div>
+                                        <div class="mb-2"><small class="text-muted">Line Token:</small> <span id="status-token" class="badge">檢查中</span></div>
+                                        <div class="mb-2"><small class="text-muted">Sheet DB:</small> <span id="status-dbid" class="badge">檢查中</span></div>
+                                        <hr>
+                                        <small class="text-muted d-block">若顯示 "WAITING"，請至 Firebase 手動填入金鑰。</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-members">
+                        <div class="d-flex justify-content-between mb-3 align-items-center">
+                            <h5 class="mb-0">會員列表 (Firebase)</h5>
+                            <button onclick="loadMembers()" class="btn btn-sm btn-outline-primary"><i class="bi bi-arrow-clockwise"></i> 刷新</button>
+                        </div>
+                        <div class="card border-0 shadow-sm">
+                            <div id="member-list" class="loading-text">載入中...</div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-leads">
+                        <div class="d-flex justify-content-between mb-3 align-items-center">
+                            <h5 class="mb-0">捕獲商機 (Leads)</h5>
+                            <button onclick="loadLeads()" class="btn btn-sm btn-outline-primary"><i class="bi bi-arrow-clockwise"></i> 刷新</button>
+                        </div>
+                        <div id="lead-list" class="row g-3"></div>
                     </div>
 
                     <div class="tab-pane fade" id="tab-products">
                         <div class="d-flex justify-content-between mb-3">
-                            <h5>商品列表</h5>
-                            <button onclick="openProductModal()" class="btn btn-success btn-sm"><i class="bi bi-plus-lg"></i> 新增商品</button>
+                            <h5 class="mb-0">商品列表</h5>
+                            <button onclick="openProductModal()" class="btn btn-success btn-sm shadow-sm"><i class="bi bi-plus-lg"></i> 新增商品</button>
                         </div>
-                        <div id="product-list" class="loading-text">請點擊上方標籤載入資料...</div>
+                        <div id="product-list" class="loading-text">載入中...</div>
                     </div>
 
                     <div class="tab-pane fade" id="tab-qa">
                         <div class="d-flex justify-content-between mb-3">
-                            <h5>知識庫問答</h5>
-                            <button onclick="openQAModal()" class="btn btn-success btn-sm"><i class="bi bi-plus-lg"></i> 新增問答</button>
+                            <h5 class="mb-0">QA 問答集</h5>
+                            <button onclick="openQAModal()" class="btn btn-success btn-sm shadow-sm"><i class="bi bi-plus-lg"></i> 新增問答</button>
                         </div>
-                        <div id="qa-list" class="loading-text">請點擊上方標籤載入資料...</div>
+                        <div id="qa-list" class="loading-text">載入中...</div>
                     </div>
                 </div>
             </div>
@@ -98,25 +158,27 @@
 <div class="modal fade" id="productModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header">
+            <div class="modal-header bg-light">
                 <h5 class="modal-title">編輯商品</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="prod-id">
-                <div class="mb-2"><label>商品名稱</label><input type="text" id="prod-name" class="form-control"></div>
-                <div class="mb-2"><label>價格</label><input type="number" id="prod-price" class="form-control"></div>
+                <div class="row g-2">
+                    <div class="col-8 mb-2"><label>商品名稱</label><input type="text" id="prod-name" class="form-control"></div>
+                    <div class="col-4 mb-2"><label>價格</label><input type="number" id="prod-price" class="form-control"></div>
+                </div>
                 <div class="mb-2"><label>圖片網址</label><input type="text" id="prod-img" class="form-control" placeholder="https://..."></div>
-                <div class="mb-2"><label>商品連結</label><input type="text" id="prod-url" class="form-control" placeholder="購買連結"></div>
+                <div class="mb-2"><label>導購連結</label><input type="text" id="prod-url" class="form-control" placeholder="購買連結"></div>
                 <div class="mb-2"><label>描述</label><textarea id="prod-desc" class="form-control" rows="2"></textarea></div>
-                <div class="form-check form-switch mt-3">
-                    <input class="form-check-input" type="checkbox" id="prod-listing" checked>
-                    <label class="form-check-label">是否上架</label>
+                <div class="form-check form-switch mt-3 p-2 bg-light rounded">
+                    <input class="form-check-input ms-0 me-2" type="checkbox" id="prod-listing" checked>
+                    <label class="form-check-label" for="prod-listing">是否上架販售</label>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-primary" onclick="saveProduct()">儲存</button>
+                <button type="button" class="btn btn-primary" onclick="saveProduct()">儲存變更</button>
             </div>
         </div>
     </div>
@@ -125,15 +187,41 @@
 <div class="modal fade" id="qaModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header"><h5 class="modal-title">編輯問答</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-header bg-light"><h5 class="modal-title">編輯問答</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
             <div class="modal-body">
                 <input type="hidden" id="qa-id">
-                <div class="mb-2"><label class="fw-bold">客戶可能會問 (Question)</label><input type="text" id="qa-question" class="form-control" placeholder="例：營業時間？"></div>
-                <div class="mb-2"><label class="fw-bold">AI 應回答 (Answer)</label><textarea id="qa-answer" class="form-control" rows="5" placeholder="例：我們每天 10:00 - 22:00 營業。"></textarea></div>
+                <div class="mb-3"><label class="fw-bold text-primary">客戶可能會問 (Q)</label><input type="text" id="qa-question" class="form-control" placeholder="例：營業時間？"></div>
+                <div class="mb-2"><label class="fw-bold text-success">AI 應回答 (A)</label><textarea id="qa-answer" class="form-control" rows="5" placeholder="例：我們每天 10:00 - 22:00 營業。"></textarea></div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
                 <button type="button" class="btn btn-primary" onclick="saveQA()">儲存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="memberModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header bg-warning-subtle"><h5 class="modal-title">修改會員權限</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="member-id">
+                <div class="mb-3">
+                    <label>會員暱稱</label>
+                    <input type="text" id="member-nick" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label>會員等級 (Tier)</label>
+                    <select id="member-tier" class="form-select">
+                        <option value="Normal">Normal (一般)</option>
+                        <option value="VIP">VIP (貴賓)</option>
+                        <option value="Blacklist">Blacklist (黑名單)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary w-100" onclick="saveMember()">更新會員</button>
             </div>
         </div>
     </div>
@@ -161,11 +249,12 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
     let currentClientId = null;
-    let prodModal, qaModal;
+    let prodModal, qaModal, memberModal;
 
     window.onload = () => {
         prodModal = new bootstrap.Modal(document.getElementById('productModal'));
         qaModal = new bootstrap.Modal(document.getElementById('qaModal'));
+        memberModal = new bootstrap.Modal(document.getElementById('memberModal'));
     };
 
     // --- 認證與視圖 ---
@@ -193,7 +282,7 @@
         }
     });
 
-    // --- 載入列表 ---
+    // --- 載入客戶列表 (含效期邏輯) ---
     async function loadClientsForSuperAdmin() {
         const list = document.getElementById('client-list');
         document.getElementById('loader-list').style.display = 'block';
@@ -221,21 +310,55 @@
         document.getElementById('loader-list').style.display = 'none';
     }
 
+    // 格式化日期
+    function fmtDate(ts) {
+        if (!ts) return "未開通";
+        return new Date(ts.seconds * 1000).toLocaleDateString();
+    }
+    
+    // 檢查是否過期
+    function isExp(ts) {
+        if (!ts) return true; // null 視為過期
+        return new Date(ts.seconds * 1000) < new Date();
+    }
+
     function renderClientList(snapshot) {
         const list = document.getElementById('client-list');
         snapshot.forEach(docSnap => {
             const data = docSnap.data();
+            const now = new Date();
+            
+            // 狀態判斷 (紅綠燈)
+            const aiActive = !isExp(data.ai_expiry);
+            const visionActive = !isExp(data.enableVision_expiry);
+            const showcaseActive = !isExp(data.enableShowcase_expiry);
+            
             list.innerHTML += `
             <div class="col-md-4">
-                <div class="card card-hover h-100" onclick="openClientDetail('${docSnap.id}', '${data.name}')">
+                <div class="card card-hover h-100 shadow-sm" onclick="openClientDetail('${docSnap.id}', '${data.name}')">
                     <div class="card-body cursor-pointer">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <h5 class="fw-bold">${data.name || '未命名'}</h5>
-                            ${data.adminEmail ? '<span class="badge bg-light text-dark border">'+data.adminEmail+'</span>' : ''}
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h5 class="fw-bold mb-0 text-truncate">${data.name || '未命名'}</h5>
+                            ${data.adminEmail ? '<small class="text-muted ms-2 text-truncate" style="max-width:100px">'+data.adminEmail+'</small>' : ''}
                         </div>
-                        <small class="text-muted d-block mt-1">ID: ${docSnap.id}</small>
-                        <div class="mt-3 text-truncate text-secondary small">
-                            ${data.prompt ? data.prompt.substring(0,60)+'...' : '無設定 AI 人設'}
+                        
+                        <div class="bg-light p-2 rounded mb-3 small">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>AI 大腦:</span>
+                                <span><span class="status-dot ${aiActive ? 'bg-active':'bg-expired'}"></span> ${fmtDate(data.ai_expiry)}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>鷹眼視覺:</span>
+                                <span><span class="status-dot ${visionActive ? 'bg-active':'bg-expired'}"></span> ${fmtDate(data.enableVision_expiry)}</span>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span>導購卡片:</span>
+                                <span><span class="status-dot ${showcaseActive ? 'bg-active':'bg-expired'}"></span> ${fmtDate(data.enableShowcase_expiry)}</span>
+                            </div>
+                        </div>
+
+                        <div class="text-truncate text-secondary small">
+                            <i class="bi bi-chat-quote"></i> ${data.prompt ? data.prompt.substring(0,40)+'...' : '無設定 AI 人設'}
                         </div>
                     </div>
                 </div>
@@ -249,36 +372,150 @@
         document.getElementById('detail-title').innerText = name;
         document.getElementById('detail-id').innerText = id;
         
-        // 重置 Tab
-        document.getElementById('product-list').innerHTML = '<p class="loading-text">點擊標籤載入...</p>';
-        document.getElementById('qa-list').innerHTML = '<p class="loading-text">點擊標籤載入...</p>';
+        // 重置 Tabs 內容
+        document.getElementById('member-list').innerHTML = '<p class="loading-text">請點擊上方標籤載入...</p>';
+        document.getElementById('lead-list').innerHTML = '<p class="loading-text">請點擊上方標籤載入...</p>';
+        document.getElementById('product-list').innerHTML = '<p class="loading-text">請點擊上方標籤載入...</p>';
+        document.getElementById('qa-list').innerHTML = '<p class="loading-text">請點擊上方標籤載入...</p>';
+        
+        // 預設切換到第一個 Tab
         const trigger = document.querySelector('a[href="#tab-settings"]');
         bootstrap.Tab.getInstance(trigger)?.show() || new bootstrap.Tab(trigger).show();
 
         switchView('detail-view');
 
-        // 讀取 Prompt
+        // 讀取核心設定 (Prompt & Keys)
         try {
-            // 使用 getDoc 讀取單一文件
             const docSnap = await getDoc(doc(db, "clients", id));
             if (docSnap.exists()) {
-                 document.getElementById('edit-prompt').value = docSnap.data().prompt || "";
+                 const d = docSnap.data();
+                 document.getElementById('edit-prompt').value = d.prompt || "";
+                 
+                 // 狀態徽章更新
+                 updateStatusBadge('status-apikey', d.apiKey);
+                 updateStatusBadge('status-token', d.token);
+                 updateStatusBadge('status-dbid', d.dbId);
+                 
+                 // 標題旁的小徽章 (純顯示用)
+                 document.getElementById('badge-ai').className = `badge ${!isExp(d.ai_expiry) ? 'bg-success':'bg-danger'} me-1`;
+                 document.getElementById('badge-vision').className = `badge ${!isExp(d.enableVision_expiry) ? 'bg-success':'bg-secondary'} me-1`;
+                 document.getElementById('badge-showcase').className = `badge ${!isExp(d.enableShowcase_expiry) ? 'bg-success':'bg-secondary'}`;
             }
         } catch(e) { console.error(e); }
     };
 
+    function updateStatusBadge(id, val) {
+        const el = document.getElementById(id);
+        if (!val || val === "WAITING_FOR_SETUP") {
+            el.className = "badge bg-warning text-dark";
+            el.innerText = "WAITING";
+        } else {
+            el.className = "badge bg-success";
+            el.innerText = "ACTIVE";
+        }
+    }
+
     window.saveClientSettings = async () => {
         const val = document.getElementById('edit-prompt').value;
         await updateDoc(doc(db, "clients", currentClientId), { prompt: val });
-        alert("✅ 設定已儲存");
+        alert("✅ AI 人設已更新");
     };
+
+    // --- [NEW] 會員管理邏輯 (CRM) ---
+    window.loadMembers = async () => {
+        const list = document.getElementById('member-list');
+        list.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-primary"></div></div>';
+        try {
+            const q = query(collection(db, "members"), where("clientId", "==", currentClientId), orderBy("createdAt", "desc"));
+            const snap = await getDocs(q);
+
+            if (snap.empty) {
+                list.innerHTML = '<p class="text-center text-muted py-4">目前還沒有會員資料。</p>';
+                return;
+            }
+
+            let html = '<div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>暱稱</th><th>等級</th><th>加入時間</th><th>管理</th></tr></thead><tbody>';
+            snap.forEach(d => {
+                const m = d.data();
+                const tierColor = m.tier === 'VIP' ? 'text-warning' : (m.tier === 'Blacklist' ? 'text-danger' : 'text-secondary');
+                html += `
+                <tr>
+                    <td>
+                        <div class="fw-bold">${m.nickName || '未命名'}</div>
+                        <small class="text-muted" style="font-size:0.7em">${m.userId}</small>
+                    </td>
+                    <td class="fw-bold ${tierColor}">${m.tier}</td>
+                    <td><small>${fmtDate(m.createdAt)}</small></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-secondary" onclick='editMember("${d.id}", "${m.nickName}", "${m.tier}")'>修改</button>
+                    </td>
+                </tr>`;
+            });
+            html += '</tbody></table></div>';
+            list.innerHTML = html;
+        } catch(e) { list.innerHTML = `<div class="alert alert-danger">讀取失敗: ${e.message}</div>`; }
+    };
+
+    window.editMember = (id, nick, tier) => {
+        document.getElementById('member-id').value = id;
+        document.getElementById('member-nick').value = nick;
+        document.getElementById('member-tier').value = tier;
+        memberModal.show();
+    }
+
+    window.saveMember = async () => {
+        const id = document.getElementById('member-id').value;
+        const nick = document.getElementById('member-nick').value;
+        const tier = document.getElementById('member-tier').value;
+        
+        try {
+            await updateDoc(doc(db, "members", id), { nickName: nick, tier: tier });
+            memberModal.hide();
+            loadMembers(); // 重新整理列表
+        } catch(e) { alert("更新失敗: " + e.message); }
+    }
+
+    // --- [NEW] 商機雷達 (Leads) ---
+    window.loadLeads = async () => {
+        const list = document.getElementById('lead-list');
+        list.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-primary"></div></div>';
+        try {
+            const q = query(collection(db, "leads"), where("clientId", "==", currentClientId), orderBy("createdAt", "desc"));
+            const snap = await getDocs(q);
+
+            if (snap.empty) {
+                list.innerHTML = '<p class="text-center text-muted py-4">尚未捕獲到商機。</p>';
+                return;
+            }
+
+            let html = '';
+            snap.forEach(d => {
+                const l = d.data();
+                html += `
+                <div class="col-md-6">
+                    <div class="card h-100 border-start border-4 border-primary shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <h6 class="fw-bold text-primary mb-3">商機捕獲</h6>
+                                <small class="text-muted">${fmtDate(l.createdAt)}</small>
+                            </div>
+                            <div class="mb-2"><i class="bi bi-telephone"></i> ${l.customerPhone || '<span class="text-muted">-</span>'}</div>
+                            <div class="mb-2"><i class="bi bi-envelope"></i> ${l.customerEmail || '<span class="text-muted">-</span>'}</div>
+                            <div class="bg-light p-2 rounded small text-secondary fst-italic">"${l.message}"</div>
+                        </div>
+                    </div>
+                </div>`;
+            });
+            list.innerHTML = html;
+        } catch(e) { list.innerHTML = `<div class="alert alert-danger">讀取失敗 (可能缺少索引): ${e.message}</div>`; }
+    };
+
 
     // --- 商品管理邏輯 (Products) ---
     window.loadProducts = async () => {
         const list = document.getElementById('product-list');
         list.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-primary"></div></div>';
         try {
-            // 查詢 products 集合中 clientId 符合的文件
             const q = query(collection(db, "products"), where("clientId", "==", currentClientId));
             const snap = await getDocs(q);
             
@@ -287,21 +524,21 @@
                 return;
             }
 
-            let html = '<div class="list-group">';
+            let html = '<div class="list-group shadow-sm">';
             snap.forEach(d => {
                 const p = d.data();
                 html += `
-                <div class="list-group-item d-flex justify-content-between align-items-center">
+                <div class="list-group-item d-flex justify-content-between align-items-center p-3">
                     <div class="d-flex align-items-center">
                         <img src="${p.image || 'https://via.placeholder.com/50'}" class="img-thumb me-3">
                         <div>
                             <div class="fw-bold">${p.name} <span class="badge bg-${p.listing?'success':'secondary'} ms-2">${p.listing?'上架中':'下架'}</span></div>
-                            <small class="text-muted">$${p.price}</small>
+                            <div class="text-muted small">$${p.price}</div>
                         </div>
                     </div>
                     <div>
-                        <button class="btn btn-sm btn-outline-primary me-2" onclick='editProduct("${d.id}", ${JSON.stringify(p).replace(/'/g, "&#39;")})'><i class="bi bi-pencil"></i></button>
-                        <button class="btn btn-sm btn-outline-danger" onclick="delProduct('${d.id}')"><i class="bi bi-trash"></i></button>
+                        <button class="btn btn-sm btn-outline-primary me-2 rounded-circle" onclick='editProduct("${d.id}", ${JSON.stringify(p).replace(/'/g, "&#39;")})'><i class="bi bi-pencil"></i></button>
+                        <button class="btn btn-sm btn-outline-danger rounded-circle" onclick="delProduct('${d.id}')"><i class="bi bi-trash"></i></button>
                     </div>
                 </div>`;
             });
@@ -353,12 +590,11 @@
         }
     };
 
-    // --- 知識庫邏輯 (QA) - 這是之前缺失的部分 ---
+    // --- 知識庫邏輯 (QA) ---
     window.loadQA = async () => {
         const list = document.getElementById('qa-list');
         list.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-primary"></div></div>';
         try {
-            // 查詢 knowledge_base 集合
             const q = query(collection(db, "knowledge_base"), where("clientId", "==", currentClientId));
             const snap = await getDocs(q);
 
@@ -367,7 +603,7 @@
                 return;
             }
 
-            let html = '<div class="accordion" id="qaAccordion">';
+            let html = '<div class="accordion shadow-sm" id="qaAccordion">';
             let idx = 0;
             snap.forEach(d => {
                 const qa = d.data();
@@ -376,7 +612,7 @@
                 <div class="accordion-item">
                     <h2 class="accordion-header">
                         <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse${idx}">
-                            <span class="fw-bold me-2">Q:</span> ${qa.question}
+                            <span class="fw-bold me-2 text-primary">Q:</span> ${qa.question}
                         </button>
                     </h2>
                     <div id="collapse${idx}" class="accordion-collapse collapse" data-bs-parent="#qaAccordion">
