@@ -59,7 +59,9 @@
     </div>
 
     <div id="detail-view" class="view-section">
-        <button onclick="showDashboard()" class="btn btn-link text-decoration-none mb-3 text-secondary ps-0"><i class="bi bi-arrow-left"></i> 返回列表</button>
+        <a href="javascript:showDashboard()" class="d-inline-block text-decoration-none text-secondary mb-3 fw-bold">
+    <i class="bi bi-chevron-left"></i> 返回列表
+        </a>
         
         <div class="card shadow-sm border-0 mb-4">
             <div class="card-body p-4">
@@ -244,15 +246,31 @@
         }
     });
 
-    function switchView(viewId) {
-        document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active-section'));
-        document.getElementById(viewId).classList.add('active-section');
-    }
+    // --- View Controller (修復版) ---
+function switchView(viewId) {
+    // 1. 強制隱藏所有視圖
+    const views = ['login-view', 'dashboard-view', 'detail-view'];
+    views.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.classList.remove('active-section');
+            el.style.display = 'none'; // 強制隱藏
+        }
+    });
 
-    // --- List Logic ---
-    async function loadClientsForSuperAdmin() {
-        renderList(await getDocs(collection(db, "clients")));
+    // 2. 顯示目標視圖
+    const target = document.getElementById(viewId);
+    if (target) {
+        target.style.display = 'block'; // 先顯示
+        // 延遲一點點加上 class 以觸發淡入動畫 (Optional)
+        setTimeout(() => target.classList.add('active-section'), 10);
+    } else {
+        console.error("View not found: " + viewId);
     }
+}
+
+// 確保全域可呼叫
+window.showDashboard = () => switchView('dashboard-view');
 
     async function loadClientForUser(email) {
         // 🔥 這裡就是 Issue 4 的關鍵：確保 email 完全匹配
@@ -453,3 +471,4 @@
 </script>
 </body>
 </html>
+
