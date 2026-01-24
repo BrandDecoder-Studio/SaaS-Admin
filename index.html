@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>SaaS 智能中控台 v4.6 (DB Fix)</title>
+    <title>SaaS 智能中控台 v4.6.2 (Final Fix)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     
@@ -24,7 +24,7 @@
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow-sm">
     <div class="container">
-        <a class="navbar-brand" href="#"><i class="bi bi-cpu text-warning me-2"></i>品智 AI 中控 (v4.6)</a>
+        <a class="navbar-brand" href="#"><i class="bi bi-cpu text-warning me-2"></i>品智 AI 中控 (v4.6.2)</a>
         <div class="d-flex align-items-center">
             <span id="user-display" class="text-light me-3 small opacity-75"></span>
             <span id="role-badge" class="badge bg-warning text-dark me-3" style="display:none">SUPER ADMIN</span>
@@ -59,9 +59,11 @@
     </div>
 
     <div id="detail-view" class="view-section">
-        <a href="javascript:showDashboard()" class="d-inline-block text-decoration-none text-secondary mb-3 fw-bold">
-    <i class="bi bi-chevron-left"></i> 返回列表
-        </a>
+        <div class="mb-3">
+            <a href="javascript:void(0)" onclick="showDashboard()" class="d-inline-flex align-items-center text-decoration-none text-secondary fw-bold fs-5">
+                <i class="bi bi-arrow-left-circle-fill me-2 text-primary"></i> 返回列表
+            </a>
+        </div>
         
         <div class="card shadow-sm border-0 mb-4">
             <div class="card-body p-4">
@@ -124,7 +126,7 @@
                     <div class="card-header bg-white d-flex justify-content-between align-items-center">
                         <h6 class="mb-0 fw-bold">會員列表</h6>
                         <div>
-                            <button onclick="alert('建議由 LINE 自動加入，此功能僅供測試')" class="btn btn-outline-secondary btn-sm me-1"><i class="bi bi-plus-lg"></i></button>
+                            <button onclick="openMemberModal()" class="btn btn-success btn-sm me-1"><i class="bi bi-person-plus"></i> 新增</button>
                             <button onclick="loadMembers()" class="btn btn-light btn-sm border"><i class="bi bi-arrow-clockwise"></i></button>
                         </div>
                     </div>
@@ -211,9 +213,8 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
     
-    // 🔥 全域變數：目前操作的 Client ID (文件ID) 與 DB Key (關聯ID)
     let currentDocId = null;
-    let currentDbId = null; // 這是最重要的修正！
+    let currentDbId = null; 
     
     let prodModal, qaModal, memberModal;
 
@@ -246,38 +247,31 @@
         }
     });
 
-    // --- View Controller (修復版) ---
-function switchView(viewId) {
-    // 1. 強制隱藏所有視圖
-    const views = ['login-view', 'dashboard-view', 'detail-view'];
-    views.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.classList.remove('active-section');
-            el.style.display = 'none'; // 強制隱藏
+    // 🔥 修復：強制隱藏/顯示視圖
+    function switchView(viewId) {
+        const views = ['login-view', 'dashboard-view', 'detail-view'];
+        views.forEach(id => {
+            const el = document.getElementById(id);
+            if(el) {
+                el.style.display = 'none'; // 先隱藏
+                el.classList.remove('active-section');
+            }
+        });
+        const target = document.getElementById(viewId);
+        if(target) {
+            target.style.display = 'block'; // 後顯示
+            setTimeout(() => target.classList.add('active-section'), 10);
         }
-    });
-
-    // 2. 顯示目標視圖
-    const target = document.getElementById(viewId);
-    if (target) {
-        target.style.display = 'block'; // 先顯示
-        // 延遲一點點加上 class 以觸發淡入動畫 (Optional)
-        setTimeout(() => target.classList.add('active-section'), 10);
-    } else {
-        console.error("View not found: " + viewId);
     }
-}
+    window.showDashboard = () => switchView('dashboard-view');
 
-// 確保全域可呼叫
-window.showDashboard = () => switchView('dashboard-view');
+    async function loadClientsForSuperAdmin() { renderList(await getDocs(collection(db, "clients"))); }
 
     async function loadClientForUser(email) {
-        // 🔥 這裡就是 Issue 4 的關鍵：確保 email 完全匹配
         const q = query(collection(db, "clients"), where("adminEmail", "==", email));
         const snap = await getDocs(q);
         if (snap.empty) {
-            document.getElementById('client-list').innerHTML = `<div class="text-center py-5 text-muted"><h5>無資料</h5><p>系統找不到 adminEmail 為 <b>${email}</b> 的資料。<br>請確認 Firebase 中是否已開通，或 Email 是否一致。</p></div>`;
+            document.getElementById('client-list').innerHTML = `<div class="text-center py-5 text-muted"><h5>無資料</h5><p>找不到 adminEmail 為 <b>${email}</b> 的資料。</p></div>`;
         } else {
             renderList(snap);
         }
@@ -290,11 +284,10 @@ window.showDashboard = () => switchView('dashboard-view');
         
         snap.forEach(d => {
             const data = d.data();
-            const now = new Date();
-            // 🔥 Issue 1 修正：補上三個開關的顯示邏輯
+            // 🔥 修復：三個開關
             const aiOk = !isExp(data.ai_expiry);
             const visOk = !isExp(data.enableVision_expiry);
-            const showOk = !isExp(data.enableShowcase_expiry); // 導購開關
+            const showOk = !isExp(data.enableShowcase_expiry); 
 
             list.innerHTML += `
             <div class="col-md-4">
@@ -319,36 +312,28 @@ window.showDashboard = () => switchView('dashboard-view');
         });
     }
 
-    // --- Detail Logic ---
-    // 🔥 修正：接收 dbId 參數
     window.openClientDetail = async (id, name, dbIdFromList) => {
         currentDocId = id;
-        // 如果列表有點不到 dbId，就先用 id (防呆)，但通常列表會有
         currentDbId = dbIdFromList || id; 
         
         document.getElementById('detail-title').innerText = name;
         document.getElementById('detail-docid').innerText = id;
-        document.getElementById('detail-dbid').innerText = currentDbId; // 顯示出來方便除錯
+        document.getElementById('detail-dbid').innerText = currentDbId;
 
-        // 清空舊資料
         ['member-list','lead-list','product-list','qa-list'].forEach(id => document.getElementById(id).innerHTML = '');
         
         switchView('detail-view');
         
-        // 讀取詳細設定
         try {
             const docSnap = await getDoc(doc(db, "clients", id));
             if (docSnap.exists()) {
                 const d = docSnap.data();
-                // 再次確認 dbId (以 DB 內為準)
                 if (d.dbId) { 
                     currentDbId = d.dbId; 
                     document.getElementById('detail-dbid').innerText = currentDbId;
                 }
-                
                 document.getElementById('edit-prompt').value = d.prompt || "";
                 
-                // 更新頂部徽章
                 const now = new Date();
                 toggleTopBadge('top-badge-ai', d.ai_expiry, now);
                 toggleTopBadge('top-badge-vision', d.enableVision_expiry, now);
@@ -366,41 +351,27 @@ window.showDashboard = () => switchView('dashboard-view');
         alert("✅ 設定已儲存");
     }
 
-    // --- CRUD Logic (全部改用 currentDbId) ---
-    // 🔥 Issue 3 修正：這裡的 where 必須用 clientId == currentDbId
-    
-    // 1. Members
+    // --- CRUD ---
     window.loadMembers = async () => loadCollection("members", "member-list", renderMemberTable);
-    // 2. Leads
     window.loadLeads = async () => loadCollection("leads", "lead-list", renderLeadCards);
-    // 3. Products
     window.loadProducts = async () => loadCollection("products", "product-list", renderProductList);
-    // 4. QA
     window.loadQA = async () => loadCollection("knowledge_base", "qa-list", renderQAList);
 
     async function loadCollection(colName, divId, renderFn) {
         const div = document.getElementById(divId);
-        showLoader('loader-'+colName.split('_')[0], true); // 簡單 loader 顯示
+        showLoader('loader-'+colName.split('_')[0], true);
         div.innerHTML = "";
-        
         try {
-            // 🔥 關鍵修正：用 dbId 去查子表
-            console.log(`Querying ${colName} with clientId = ${currentDbId}`);
             const q = query(collection(db, colName), where("clientId", "==", currentDbId));
             const snap = await getDocs(q);
-            
-            if (snap.empty) {
-                div.innerHTML = '<p class="text-center text-muted py-3">尚無資料。</p>';
-            } else {
-                div.innerHTML = renderFn(snap);
-            }
+            if (snap.empty) div.innerHTML = '<p class="text-center text-muted py-3">尚無資料。</p>';
+            else div.innerHTML = renderFn(snap);
         } catch(e) {
             console.error(e);
-            div.innerHTML = `<div class="alert alert-danger">讀取失敗: ${e.message}<br><small>請檢查 Firestore 索引或 clientId 是否正確。</small></div>`;
+            div.innerHTML = `<div class="alert alert-danger">讀取失敗: ${e.message}<br><small>請檢查 Firestore 索引。</small></div>`;
         }
     }
 
-    // --- Render Functions ---
     function renderMemberTable(snap) {
         let h = '<div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>暱稱</th><th>等級</th><th>加入時間</th><th></th></tr></thead><tbody>';
         snap.forEach(d => {
@@ -438,9 +409,25 @@ window.showDashboard = () => switchView('dashboard-view');
         return h + '</div>';
     }
 
-    // --- Edit / Save Helpers ---
+    // --- Helpers ---
+    // 🔥 新增：支援新增會員邏輯
+    window.openMemberModal = () => { document.getElementById('member-id').value=""; document.getElementById('member-nick').value=""; document.getElementById('member-tier').value="Normal"; memberModal.show(); };
     window.editMember = (id, n, t) => { document.getElementById('member-id').value=id; document.getElementById('member-nick').value=n; document.getElementById('member-tier').value=t; memberModal.show(); };
-    window.saveMember = async () => { await updateDoc(doc(db, "members", document.getElementById('member-id').value), { nickName: document.getElementById('member-nick').value, tier: document.getElementById('member-tier').value }); memberModal.hide(); loadMembers(); };
+    
+    window.saveMember = async () => { 
+        const id = document.getElementById('member-id').value;
+        const payload = { nickName: document.getElementById('member-nick').value, tier: document.getElementById('member-tier').value };
+        if(id) {
+            await updateDoc(doc(db, "members", id), payload); 
+        } else {
+            // 新增時補上必要欄位
+            payload.clientId = currentDbId;
+            payload.createdAt = new Date();
+            payload.userId = "MANUAL_" + Date.now();
+            await addDoc(collection(db, "members"), payload);
+        }
+        memberModal.hide(); loadMembers(); 
+    };
     
     window.editProduct = (id, data) => { document.getElementById('prod-id').value=id; document.getElementById('prod-name').value=data.name; document.getElementById('prod-price').value=data.price; document.getElementById('prod-img').value=data.image; document.getElementById('prod-url').value=data.url; document.getElementById('prod-desc').value=data.desc; document.getElementById('prod-listing').checked=data.listing!==false; prodModal.show(); };
     window.openProductModal = () => { document.getElementById('prod-id').value=""; document.getElementById('prod-name').value=""; document.getElementById('prod-price').value=""; prodModal.show(); };
@@ -462,13 +449,11 @@ window.showDashboard = () => switchView('dashboard-view');
 
     window.delDoc = async (col, id) => { if(confirm("確定刪除？")) { await deleteDoc(doc(db, col, id)); if(col=='products') loadProducts(); else loadQA(); } };
 
-    // --- Utils ---
     function fmtDate(ts) { if(!ts) return "---"; return new Date(ts.seconds*1000).toLocaleDateString(); }
     function isExp(ts) { if(!ts) return true; return new Date(ts.seconds*1000) < new Date(); }
     function toggleTopBadge(id, ts, now) { const el=document.getElementById(id); if(ts && new Date(ts.seconds*1000) > now) { el.className="badge bg-success me-1"; } else { el.className="badge bg-secondary me-1"; } }
     function updateStatus(id, val) { const el=document.getElementById(id); if(!val || val.includes("WAITING")) { el.className="badge bg-warning text-dark"; el.innerText="WAITING"; } else { el.className="badge bg-success"; el.innerText="ACTIVE"; } }
-    function showLoader(id, show) { /* 簡單實作略 */ }
+    function showLoader(id, show) { const el = document.getElementById(id); if(el) el.style.display = show ? 'flex' : 'none'; }
 </script>
 </body>
 </html>
-
