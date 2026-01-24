@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>SaaS 智能中控台 v4.6.2 (Final Fix)</title>
+    <title>SaaS 智能中控台 v4.7 (Index Matched)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     
@@ -24,7 +24,7 @@
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow-sm">
     <div class="container">
-        <a class="navbar-brand" href="#"><i class="bi bi-cpu text-warning me-2"></i>品智 AI 中控 (v4.6.2)</a>
+        <a class="navbar-brand" href="#"><i class="bi bi-cpu text-warning me-2"></i>品智 AI 中控 (v4.7)</a>
         <div class="d-flex align-items-center">
             <span id="user-display" class="text-light me-3 small opacity-75"></span>
             <span id="role-badge" class="badge bg-warning text-dark me-3" style="display:none">SUPER ADMIN</span>
@@ -247,19 +247,19 @@
         }
     });
 
-    // 🔥 修復：強制隱藏/顯示視圖
+    // --- View Controller (Force Hide/Show) ---
     function switchView(viewId) {
         const views = ['login-view', 'dashboard-view', 'detail-view'];
         views.forEach(id => {
             const el = document.getElementById(id);
             if(el) {
-                el.style.display = 'none'; // 先隱藏
+                el.style.display = 'none';
                 el.classList.remove('active-section');
             }
         });
         const target = document.getElementById(viewId);
         if(target) {
-            target.style.display = 'block'; // 後顯示
+            target.style.display = 'block';
             setTimeout(() => target.classList.add('active-section'), 10);
         }
     }
@@ -284,7 +284,6 @@
         
         snap.forEach(d => {
             const data = d.data();
-            // 🔥 修復：三個開關
             const aiOk = !isExp(data.ai_expiry);
             const visOk = !isExp(data.enableVision_expiry);
             const showOk = !isExp(data.enableShowcase_expiry); 
@@ -352,23 +351,31 @@
     }
 
     // --- CRUD ---
-    window.loadMembers = async () => loadCollection("members", "member-list", renderMemberTable);
-    window.loadLeads = async () => loadCollection("leads", "lead-list", renderLeadCards);
-    window.loadProducts = async () => loadCollection("products", "product-list", renderProductList);
-    window.loadQA = async () => loadCollection("knowledge_base", "qa-list", renderQAList);
+    // 🔥 修改：配合索引，Members/Leads/Products 都要有 orderBy (Products 加上 updatedAt)
+    window.loadMembers = async () => loadCollection("members", "member-list", renderMemberTable, "createdAt");
+    window.loadLeads = async () => loadCollection("leads", "lead-list", renderLeadCards, "createdAt");
+    window.loadProducts = async () => loadCollection("products", "product-list", renderProductList, "updatedAt"); 
+    window.loadQA = async () => loadCollection("knowledge_base", "qa-list", renderQAList, null); // QA 通常不需要複雜排序
 
-    async function loadCollection(colName, divId, renderFn) {
+    async function loadCollection(colName, divId, renderFn, sortField) {
         const div = document.getElementById(divId);
         showLoader('loader-'+colName.split('_')[0], true);
         div.innerHTML = "";
         try {
-            const q = query(collection(db, colName), where("clientId", "==", currentDbId));
+            // 🔥 關鍵修正：如果有 sortField，就加 orderBy，完美對齊索引
+            let q;
+            if (sortField) {
+                q = query(collection(db, colName), where("clientId", "==", currentDbId), orderBy(sortField, "desc"));
+            } else {
+                q = query(collection(db, colName), where("clientId", "==", currentDbId));
+            }
+            
             const snap = await getDocs(q);
             if (snap.empty) div.innerHTML = '<p class="text-center text-muted py-3">尚無資料。</p>';
             else div.innerHTML = renderFn(snap);
         } catch(e) {
             console.error(e);
-            div.innerHTML = `<div class="alert alert-danger">讀取失敗: ${e.message}<br><small>請檢查 Firestore 索引。</small></div>`;
+            div.innerHTML = `<div class="alert alert-danger">讀取失敗: ${e.message}<br><small>請檢查 F12 Console 確認是否需要建立索引。</small></div>`;
         }
     }
 
@@ -410,22 +417,13 @@
     }
 
     // --- Helpers ---
-    // 🔥 新增：支援新增會員邏輯
     window.openMemberModal = () => { document.getElementById('member-id').value=""; document.getElementById('member-nick').value=""; document.getElementById('member-tier').value="Normal"; memberModal.show(); };
     window.editMember = (id, n, t) => { document.getElementById('member-id').value=id; document.getElementById('member-nick').value=n; document.getElementById('member-tier').value=t; memberModal.show(); };
-    
     window.saveMember = async () => { 
         const id = document.getElementById('member-id').value;
         const payload = { nickName: document.getElementById('member-nick').value, tier: document.getElementById('member-tier').value };
-        if(id) {
-            await updateDoc(doc(db, "members", id), payload); 
-        } else {
-            // 新增時補上必要欄位
-            payload.clientId = currentDbId;
-            payload.createdAt = new Date();
-            payload.userId = "MANUAL_" + Date.now();
-            await addDoc(collection(db, "members"), payload);
-        }
+        if(id) { await updateDoc(doc(db, "members", id), payload); } 
+        else { payload.clientId = currentDbId; payload.createdAt = new Date(); payload.userId = "MANUAL_" + Date.now(); await addDoc(collection(db, "members"), payload); }
         memberModal.hide(); loadMembers(); 
     };
     
