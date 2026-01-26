@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>SaaS 智能中控台 v4.8 (Debug Mode)</title>
+    <title>SaaS 智能中控台 v4.9 (Multi-Tenant)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style>
@@ -23,7 +23,7 @@
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow-sm">
     <div class="container">
-        <a class="navbar-brand" href="#"><i class="bi bi-cpu text-warning me-2"></i>品智 AI 中控 (v4.8 Debug)</a>
+        <a class="navbar-brand" href="#"><i class="bi bi-cpu text-warning me-2"></i>品智 AI 中控 (v4.9)</a>
         <div class="d-flex align-items-center">
             <span id="user-display" class="text-light me-3 small opacity-75"></span>
             <span id="role-badge" class="badge bg-warning text-dark me-3" style="display:none">SUPER ADMIN</span>
@@ -33,11 +33,12 @@
 </nav>
 
 <div class="container pb-5">
+
     <div id="login-view" class="view-section active-section text-center mt-5">
         <div class="card mx-auto shadow border-0" style="max-width: 400px;">
             <div class="card-body p-5">
                 <i class="bi bi-person-circle text-primary" style="font-size: 3rem;"></i>
-                <h4 class="mt-3 mb-4">管理員登入</h4>
+                <h4 class="mt-3 mb-4">SaaS 後台登入</h4>
                 <button onclick="handleLogin()" class="btn btn-primary w-100 rounded-pill"><i class="bi bi-google me-2"></i> Google 登入</button>
                 <div id="login-msg" class="text-danger mt-3 small"></div>
             </div>
@@ -46,7 +47,7 @@
 
     <div id="dashboard-view" class="view-section">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <div><h4 class="fw-bold mb-0">我的專案 / 企業</h4><small class="text-muted" id="filter-hint">讀取中...</small></div>
+            <div><h4 class="fw-bold mb-0">專案管理列表</h4><small class="text-muted" id="filter-hint">讀取中...</small></div>
             <button class="btn btn-sm btn-outline-secondary" onclick="location.reload()"><i class="bi bi-arrow-clockwise"></i> 刷新</button>
         </div>
         <div id="loader-list" class="text-center py-5"><div class="spinner-border text-primary"></div></div>
@@ -55,7 +56,7 @@
 
     <div id="detail-view" class="view-section">
         <div class="mb-3">
-            <a href="javascript:void(0)" onclick="showDashboard()" class="d-inline-flex align-items-center text-decoration-none text-secondary fw-bold fs-5">
+            <a href="javascript:void(0)" onclick="showDashboard()" id="btn-back-list" class="d-inline-flex align-items-center text-decoration-none text-secondary fw-bold fs-5">
                 <i class="bi bi-arrow-left-circle-fill me-2 text-primary"></i> 返回列表
             </a>
         </div>
@@ -180,17 +181,30 @@
     window.handleLogin = () => signInWithPopup(auth, new GoogleAuthProvider()).catch(e => document.getElementById('login-msg').innerText = e.message);
     window.handleLogout = () => signOut(auth).then(() => location.reload());
 
+    // 🔥 核心邏輯修改：自動轉址判斷
     onAuthStateChanged(auth, async user => {
         if (user) {
             document.getElementById('user-display').innerText = user.email;
             document.getElementById('btn-logout').style.display = 'block';
-            switchView('dashboard-view');
-            if (SUPER_ADMINS.includes(user.email)) {
+            
+            // 判斷是否為超級管理員
+            const isSuper = SUPER_ADMINS.includes(user.email);
+            
+            if (isSuper) {
+                // 超級管理員 -> 顯示列表、顯示返回按鈕
                 document.getElementById('role-badge').style.display = "inline-block";
                 document.getElementById('filter-hint').innerText = "超級管理員模式";
+                document.getElementById('btn-back-list').style.display = 'inline-flex'; // 顯示返回
+                switchView('dashboard-view');
                 await loadClientsForSuperAdmin();
             } else {
+                // 一般店家 -> 隱藏返回按鈕，並觸發自動載入
+                document.getElementById('role-badge').style.display = "none";
                 document.getElementById('filter-hint').innerText = `Owner: ${user.email}`;
+                document.getElementById('btn-back-list').style.display = 'none'; // 隱藏返回，防止他跳出去
+                
+                // 暫時顯示 dashboard (載入畫面)，然後自動跳轉
+                switchView('dashboard-view');
                 await loadClientForUser(user.email);
             }
         } else {
@@ -209,11 +223,23 @@
     window.showDashboard = () => switchView('dashboard-view');
 
     async function loadClientsForSuperAdmin() { renderList(await getDocs(collection(db, "clients"))); }
+    
+    // 🔥 核心邏輯修改：店家登入後自動跳轉
     async function loadClientForUser(email) {
+        document.getElementById('loader-list').style.display = 'block';
         const q = query(collection(db, "clients"), where("adminEmail", "==", email));
         const snap = await getDocs(q);
-        if (snap.empty) document.getElementById('client-list').innerHTML = `<div class="text-center py-5 text-muted">無資料</div>`;
-        else renderList(snap);
+        document.getElementById('loader-list').style.display = 'none';
+        
+        if (snap.empty) {
+            document.getElementById('client-list').innerHTML = `<div class="text-center py-5 text-muted"><h5>無授權資料</h5><p>帳號 <b>${email}</b> 尚未開通任何 SaaS 服務。</p></div>`;
+        } else {
+            // 自動進入第一筆資料
+            const docSnap = snap.docs[0];
+            const data = docSnap.data();
+            console.log("店家登入，自動跳轉至:", data.name);
+            openClientDetail(docSnap.id, data.name, data.dbId);
+        }
     }
 
     function renderList(snap) {
@@ -270,7 +296,7 @@
         alert("✅ 設定已儲存");
     }
 
-    // 🔥 終極測試：移除 orderBy
+    // CRUD (保持不變)
     window.loadMembers = async () => loadCollection("members", "member-list", renderMemberTable);
     window.loadLeads = async () => loadCollection("leads", "lead-list", renderLeadCards);
     window.loadProducts = async () => loadCollection("products", "product-list", renderProductList);
@@ -282,7 +308,6 @@
         div.innerHTML = "";
         try {
             console.log("Loading " + colName + " for " + currentDbId);
-            // 🔥 這裡移除了 orderBy，只保留 where，這是最寬鬆的查詢
             const q = query(collection(db, colName), where("clientId", "==", currentDbId));
             const snap = await getDocs(q);
             if (snap.empty) {
@@ -292,7 +317,7 @@
             }
         } catch(e) {
             console.error(e);
-            alert("讀取失敗！請看 F12 Console: " + e.message); // 強制彈窗報錯
+            alert("讀取失敗！請看 F12 Console: " + e.message);
             div.innerHTML = `<div class="alert alert-danger">Error: ${e.message}</div>`;
         }
         showLoader('loader-'+colName.split('_')[0], false);
@@ -320,7 +345,7 @@
         return h + '</div>';
     }
 
-    // Modals Helpers (省略重複部分，保持不變)
+    // Modals Helpers (保持不變)
     window.openMemberModal = () => { document.getElementById('member-id').value=""; document.getElementById('member-nick').value=""; document.getElementById('member-tier').value="Normal"; memberModal.show(); };
     window.editMember = (id, n, t) => { document.getElementById('member-id').value=id; document.getElementById('member-nick').value=n; document.getElementById('member-tier').value=t; memberModal.show(); };
     window.saveMember = async () => { 
