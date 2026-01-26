@@ -397,11 +397,24 @@
 
     window.delDoc = async (col, id) => { if(confirm("確定刪除？")) { await deleteDoc(doc(db, col, id)); if(col=='products') loadProducts(); else loadQA(); } };
 
-    function fmtDate(ts) { if(!ts) return "---"; return new Date(ts.seconds*1000).toLocaleDateString(); }
+    function fmtDate(ts) { 
+        if(!ts) return "---"; 
+        // 使用 toLocaleString 並設定選項，顯示到「分」
+        return new Date(ts.seconds*1000).toLocaleString('zh-TW', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false // 使用 24 小時制 (例如 13:30)
+        }); 
+    }
     function isExp(ts) { if(!ts) return true; return new Date(ts.seconds*1000) < new Date(); }
     function toggleTopBadge(id, ts, now) { const el=document.getElementById(id); if(ts && new Date(ts.seconds*1000) > now) { el.className="badge bg-success me-1"; } else { el.className="badge bg-secondary me-1"; } }
     function updateStatus(id, val) { const el=document.getElementById(id); if(!val || val.includes("WAITING")) { el.className="badge bg-warning text-dark"; el.innerText="WAITING"; } else { el.className="badge bg-success"; el.innerText="ACTIVE"; } }
     function showLoader(id, show) { const el = document.getElementById(id); if(el) el.style.display = show ? 'flex' : 'none'; }
+   
 </script>
 </body>
 </html>
+
