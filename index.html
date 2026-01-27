@@ -312,11 +312,56 @@
         showLoader('loader-'+colName.split('_')[0], false);
     }
 
-    function renderMemberTable(snap) {
-        let h = '<div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>暱稱</th><th>等級</th><th>加入時間</th><th></th></tr></thead><tbody>';
-        snap.forEach(d => { const m = d.data(); h += `<tr><td>${m.nickName||'訪客'}</td><td>${m.tier}</td><td>${fmtDate(m.createdAt)}</td><td class="text-end"><button class="btn btn-sm btn-light border" onclick='editMember("${d.id}", "${m.nickName}", "${m.tier}")'>編輯</button></td></tr>`; });
-        return h + '</tbody></table></div>';
+    // 🔥 CRM 表格更新：加入 User ID 欄位與樣式美化
+function renderMemberTable(snap) {
+    // 1. 定義表頭：多加一欄 "User ID"
+    let h = `
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>暱稱</th>
+                    <th>User ID (點擊全選)</th>
+                    <th>等級</th>
+                    <th>加入時間</th>
+                    <th class="text-end">管理</th>
+                </tr>
+            </thead>
+            <tbody>`;
+
+    if (snap.empty) {
+        return '<div class="p-4 text-center text-muted">尚無會員資料</div>';
     }
+
+    snap.forEach(d => { 
+        const m = d.data(); 
+        
+        // ID 顯示處理 (防呆 + 樣式)
+        const userIdDisplay = m.userId 
+            ? `<span class="font-monospace bg-white border px-2 py-1 rounded small user-select-all text-secondary">${m.userId}</span>` 
+            : '<span class="text-muted small fst-italic">未記錄</span>';
+
+        // 等級標籤顏色
+        let tierBadge = 'bg-secondary';
+        if (m.tier === 'VIP') tierBadge = 'bg-warning text-dark';
+        if (m.tier === 'Blacklist') tierBadge = 'bg-dark';
+
+        h += `
+        <tr>
+            <td class="fw-bold text-primary">${m.nickName || '訪客'}</td>
+            <td>${userIdDisplay}</td>
+            <td><span class="badge ${tierBadge}">${m.tier}</span></td>
+            <td class="small text-muted">${fmtDate(m.createdAt)}</td>
+            <td class="text-end">
+                <button class="btn btn-sm btn-outline-secondary" onclick='editMember("${d.id}", "${m.nickName}", "${m.tier}")'>
+                    <i class="bi bi-pencil"></i> 編輯
+                </button>
+            </td>
+        </tr>`; 
+    });
+
+    return h + '</tbody></table></div>';
+}
 
     // 🔥 重點更新：商機卡片樣式 (v4.92 含 ID 顯示)
 function renderLeadCards(snap) {
@@ -436,5 +481,6 @@ function renderLeadCards(snap) {
 </script>
 </body>
 </html>
+
 
 
