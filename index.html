@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>SaaS 智能中控台 v5.01 (UI Fix)</title>
+    <title>SaaS 智能中控台 v5.02 (Final Stable)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style>
@@ -23,7 +23,7 @@
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow-sm">
     <div class="container">
-        <a class="navbar-brand" href="#"><i class="bi bi-cpu text-warning me-2"></i>品智 AI 中控 (v5.01)</a>
+        <a class="navbar-brand" href="#"><i class="bi bi-cpu text-warning me-2"></i>品智 AI 中控 (v5.02)</a>
         <div class="d-flex align-items-center">
             <span id="user-display" class="text-light me-3 small opacity-75"></span>
             <span id="role-badge" class="badge bg-warning text-dark me-3" style="display:none">SUPER ADMIN</span>
@@ -357,10 +357,6 @@
     }
 
     // =========================================================================
-    // 🔥 NEW: Leads 狀態管理與過濾核心
-    // =========================================================================
-    
-    // =========================================================================
     // 🔥 NEW: Leads 狀態管理與過濾核心 (v5.02 防卡死優化版)
     // =========================================================================
     
@@ -490,24 +486,13 @@
 
     function getFilterLabel(val) { return ({ 'all': '全部', 'new': '未處理', 'processing': '處理中', 'done': '已完成' })[val] || val; }
 
-    // 4. 備用過濾 (當索引未建立時)
-    async function loadLeadsFallback(div, filterVal) {
-        const q = query(collection(db, "leads"), where("clientId", "==", currentDbId), orderBy("createdAt", "desc"));
-        const snap = await getDocs(q);
-        const filtered = [];
-        snap.forEach(d => { if (filterVal === 'all' || (d.data().status || 'new') === filterVal) filtered.push(d); });
-        
-        const fakeSnap = filtered; fakeSnap.forEach = (fn) => filtered.forEach(fn);
-        if (filtered.length === 0) div.innerHTML = `<div class="col-12 text-center text-muted py-5">目前沒有「${getFilterLabel(filterVal)}」的商機</div>`;
-        else div.innerHTML = renderLeadCards(fakeSnap);
-    }
-    // =========================================================================
-
     function renderProductList(snap) {
         let h = '<div class="list-group list-group-flush">';
         snap.forEach(d => { const p = d.data(); h += `<div class="list-group-item d-flex justify-content-between align-items-center py-3"><div class="d-flex align-items-center"><img src="${p.image||'https://placehold.co/50'}" class="img-thumb me-3"><div><div class="fw-bold">${p.name}</div><div class="text-muted small">$${p.price}</div></div></div><div><button class="btn btn-sm btn-outline-primary rounded-circle me-1" onclick='editProduct("${d.id}", ${JSON.stringify(p).replace(/'/g, "&#39;")})'><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-outline-danger rounded-circle" onclick="delDoc('products','${d.id}')"><i class="bi bi-trash"></i></button></div></div>`; });
         return h + '</div>';
     }
+    
+    // QA 渲染 (修復版：使用 Cache)
     function renderQAList(snap) {
         let h = '<div class="accordion" id="qaAcc">';
         let i = 0;
@@ -519,10 +504,10 @@
             const qa = d.data(); 
             i++; 
             
-            // 🔥 關鍵修正：把資料存進記憶體 (Cache)，而不是塞進 HTML 裡
+            // 🔥 把資料存進記憶體
             window.qaDataCache[d.id] = qa;
 
-            // 簡單的防止 XSS (讓特殊符號能顯示，但不破壞 HTML)
+            // 簡單防止 XSS
             const safeQ = (qa.question || "").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
             const safeA = (qa.answer || "").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -548,15 +533,10 @@
         return h + '</div>';
     }
 
-    // 輔助函式：防止 HTML 注入 (讓特殊符號正常顯示)
+    // 輔助函式：防止 HTML 注入
     function escapeHtml(text) {
         if (!text) return "";
-        return text
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
+        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
     // Modals Helpers
@@ -578,16 +558,10 @@
         prodModal.hide(); loadProducts();
     };
 
-    // 修改後的編輯函式：接收 ID -> 去暫存區抓資料 -> 填入表單
+    // 修改後的編輯函式：從 Cache 讀取
     window.editQA = (id) => { 
-        // 從全域變數讀取資料，這樣最穩
         const data = window.qaDataCache[id]; 
-        
-        if (!data) {
-            alert("讀取資料錯誤，請嘗試刷新頁面");
-            return;
-        }
-        
+        if (!data) { alert("讀取資料錯誤，請嘗試刷新頁面"); return; }
         document.getElementById('qa-id').value = id; 
         document.getElementById('qa-question').value = data.question; 
         document.getElementById('qa-answer').value = data.answer; 
@@ -617,6 +591,3 @@
 </script>
 </body>
 </html>
-
-
-
