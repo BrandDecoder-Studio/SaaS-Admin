@@ -318,42 +318,61 @@
         return h + '</tbody></table></div>';
     }
 
-    // 🔥 重點更新：商機卡片樣式
-    function renderLeadCards(snap) {
-        let h = '';
-        snap.forEach(d => { 
-            const l = d.data(); 
-            // 欄位容錯處理：支援新舊欄位
-            const name = l.userName || l.nickName || 'LINE 用戶';
-            const contact = l.contactInfo || l.customerPhone || l.customerEmail || l.lineId || '未提供';
-            const req = l.message || '無內容';
+    // 🔥 重點更新：商機卡片樣式 (v4.92 含 ID 顯示)
+function renderLeadCards(snap) {
+    let h = '';
+    if (snap.empty) {
+        return '<div class="col-12 text-center text-muted py-5">目前沒有捕捉到任何商機。</div>';
+    }
 
-            h += `
-            <div class="col-md-6">
-                <div class="card h-100 border-0 shadow-sm">
-                    <div class="card-header bg-warning bg-opacity-10 border-0 d-flex justify-content-between align-items-center">
-                        <span class="fw-bold text-dark"><i class="bi bi-star-fill text-warning me-2"></i>商機捕獲</span>
-                        <small class="text-muted">${fmtDate(l.createdAt)}</small>
+    snap.forEach(d => { 
+        const l = d.data(); 
+        // 欄位容錯處理：支援新舊欄位
+        const name = l.userName || l.nickName || 'LINE 用戶';
+        const contact = l.contactInfo || l.customerPhone || l.customerEmail || l.lineId || '未提供';
+        const req = l.message || '無內容';
+        const userId = l.userId || '未抓取'; // 準備好 ID 變數
+
+        // 時間格式化 (防呆)
+        let timeStr = "剛剛";
+        if (l.createdAt && l.createdAt.seconds) {
+             timeStr = new Date(l.createdAt.seconds * 1000).toLocaleString('zh-TW', {
+                month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false
+             });
+        }
+
+        h += `
+        <div class="col-md-6">
+            <div class="card h-100 border-0 shadow-sm card-hover">
+                <div class="card-header bg-warning bg-opacity-10 border-0 d-flex justify-content-between align-items-center">
+                    <span class="fw-bold text-dark"><i class="bi bi-star-fill text-warning me-2"></i>商機捕獲</span>
+                    <small class="text-muted">${timeStr}</small>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <span class="badge bg-secondary me-2">姓名</span>
+                        <span class="fw-bold fs-5">${name}</span>
                     </div>
-                    <div class="card-body">
-                        <div class="mb-2">
-                            <span class="badge bg-secondary me-2">姓名</span>
-                            <span class="fw-bold">${name}</span>
-                        </div>
-                        <div class="mb-3">
-                            <span class="badge bg-success me-2">聯絡</span>
-                            <span class="font-monospace">${contact}</span>
-                        </div>
-                        <div class="bg-light p-3 rounded border-start border-4 border-warning">
-                            <small class="text-muted d-block mb-1">需求描述：</small>
-                            <span class="fst-italic text-dark">${req}</span>
-                        </div>
+                    
+                    <div class="mb-3 ps-1" style="font-size: 0.85rem; color: #6c757d;">
+                        <i class="bi bi-person-badge me-1"></i>ID: 
+                        <span class="font-monospace user-select-all bg-light px-1 rounded border">${userId}</span>
+                    </div>
+
+                    <div class="mb-3">
+                        <span class="badge bg-success me-2">聯絡</span>
+                        <span class="font-monospace fw-bold text-primary">${contact}</span>
+                    </div>
+                    <div class="bg-light p-3 rounded border-start border-4 border-warning">
+                        <small class="text-muted d-block mb-1">需求描述：</small>
+                        <span class="fst-italic text-dark">${req}</span>
                     </div>
                 </div>
-            </div>`; 
-        });
-        return h;
-    }
+            </div>
+        </div>`; 
+    });
+    return h;
+}
 
     function renderProductList(snap) {
         let h = '<div class="list-group list-group-flush">';
@@ -417,4 +436,5 @@
 </script>
 </body>
 </html>
+
 
