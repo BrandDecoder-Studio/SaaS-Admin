@@ -512,27 +512,31 @@
         let h = '<div class="accordion" id="qaAcc">';
         let i = 0;
         
-        // 清空暫存
+        // 每次渲染前，清空暫存區
         window.qaDataCache = {};
 
         snap.forEach(d => { 
             const qa = d.data(); 
             i++; 
             
-            // 🔥 關鍵修正：把資料存進記憶體，而不是塞進 HTML
+            // 🔥 關鍵修正：把資料存進記憶體 (Cache)，而不是塞進 HTML 裡
             window.qaDataCache[d.id] = qa;
+
+            // 簡單的防止 XSS (讓特殊符號能顯示，但不破壞 HTML)
+            const safeQ = (qa.question || "").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+            const safeA = (qa.answer || "").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
             h += `
             <div class="accordion-item">
                 <h2 class="accordion-header">
                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c${i}">
                         <span class="fw-bold me-2 text-primary">Q:</span>
-                        ${escapeHtml(qa.question)}
+                        ${safeQ}
                     </button>
                 </h2>
                 <div id="c${i}" class="accordion-collapse collapse" data-bs-parent="#qaAcc">
                     <div class="accordion-body bg-light">
-                        <div class="mb-2" style="white-space: pre-wrap;"><strong>A:</strong> ${escapeHtml(qa.answer)}</div>
+                        <div class="mb-2" style="white-space: pre-wrap;"><strong>A:</strong> ${safeA}</div>
                         <div class="text-end">
                             <button class="btn btn-sm btn-primary me-2" onclick='editQA("${d.id}")'>編輯</button>
                             <button class="btn btn-sm btn-danger" onclick="delDoc('knowledge_base','${d.id}')">刪除</button>
@@ -576,11 +580,14 @@
 
     // 修改後的編輯函式：接收 ID -> 去暫存區抓資料 -> 填入表單
     window.editQA = (id) => { 
-        const data = window.qaDataCache[id]; // 從記憶體讀取，不會有格式錯誤
+        // 從全域變數讀取資料，這樣最穩
+        const data = window.qaDataCache[id]; 
+        
         if (!data) {
-            alert("讀取資料錯誤，請刷新頁面");
+            alert("讀取資料錯誤，請嘗試刷新頁面");
             return;
         }
+        
         document.getElementById('qa-id').value = id; 
         document.getElementById('qa-question').value = data.question; 
         document.getElementById('qa-answer').value = data.answer; 
@@ -610,5 +617,6 @@
 </script>
 </body>
 </html>
+
 
 
