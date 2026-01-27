@@ -312,14 +312,24 @@
     window.loadProducts = async () => loadCollection("products", "product-list", renderProductList);
     window.loadQA = async () => loadCollection("knowledge_base", "qa-list", renderQAList);
 
+    // ⬇️ 請用這段覆蓋原本的 loadCollection 函式
     async function loadCollection(colName, divId, renderFn) {
         const div = document.getElementById(divId);
-        showLoader('loader-'+colName.split('_')[0], true);
+        
+        // 🔥 修正 Loader ID 對應問題
+        // 知識庫的 colName 是 'knowledge_base'，但 HTML ID 是 'loader-qa'
+        // 這裡做一個簡單的對應
+        let loaderId = 'loader-' + colName.split('_')[0];
+        if (colName === 'knowledge_base') loaderId = 'loader-qa';
+
+        showLoader(loaderId, true); // 開啟轉圈圈
         div.innerHTML = "";
+        
         try {
             console.log("Loading " + colName + " for " + currentDbId);
             const q = query(collection(db, colName), where("clientId", "==", currentDbId));
             const snap = await getDocs(q);
+            
             if (snap.empty) {
                 div.innerHTML = '<p class="text-center text-muted py-3">尚無資料。</p>';
             } else {
@@ -327,9 +337,15 @@
             }
         } catch(e) {
             console.error(e);
-            div.innerHTML = `<div class="alert alert-danger">Error: ${e.message}</div>`;
+            // 顯示紅字錯誤給使用者看，而不是只在 Console 報錯
+            div.innerHTML = `<div class="alert alert-danger p-3">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                讀取失敗 (${e.message})。<br>
+                <small class="ms-4">請嘗試重新整理網頁 (Ctrl+F5)</small>
+            </div>`;
+        } finally {
+            showLoader(loaderId, false); // 不管成功失敗，一定要關閉轉圈圈
         }
-        showLoader('loader-'+colName.split('_')[0], false);
     }
 
     function renderMemberTable(snap) {
@@ -591,3 +607,4 @@
 </script>
 </body>
 </html>
+
