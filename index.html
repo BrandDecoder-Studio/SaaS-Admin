@@ -359,11 +359,15 @@
     // 🔥 NEW: Leads 狀態管理與過濾核心
     // =========================================================================
     
-    // 1. 載入商機 (含過濾)
+    // =========================================================================
+    // 🔥 NEW: Leads 狀態管理與過濾核心 (v5.02 防卡死優化版)
+    // =========================================================================
+    
+    // 1. 載入商機 (含過濾 + 防卡死機制)
     window.loadLeads = async () => {
         const div = document.getElementById('lead-list');
         const filterVal = document.getElementById('lead-filter').value;
-        showLoader('loader-leads', true);
+        showLoader('loader-leads', true); // 開啟轉圈圈
         div.innerHTML = "";
         
         try {
@@ -375,21 +379,27 @@
             const q = query(collection(db, "leads"), ...constraints);
             const snap = await getDocs(q);
             
-            if (snap.empty) {
-                div.innerHTML = `<div class="col-12 text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2"></i>目前沒有「${getFilterLabel(filterVal)}」的商機</div>`;
-            } else {
-                div.innerHTML = renderLeadCards(snap);
-            }
+            // 渲染資料
+            renderContent(div, snap, filterVal);
+
         } catch(e) {
-            console.warn("索引缺失或查詢錯誤，改用客戶端過濾...", e);
+            console.warn("⚠️ 索引缺失或查詢錯誤，啟動備用過濾模式...", e);
+            // 如果報錯，執行備用過濾 (前端過濾)
             await loadLeadsFallback(div, filterVal);
+        } finally {
+            // 🔥 關鍵修正：不管成功還是失敗，最後一定要關掉轉圈圈
+            showLoader('loader-leads', false);
         }
-        showLoader('loader-leads', false);
     };
 
-    // 2. 渲染商機卡片 (含狀態切換)
+    // 2. 渲染商機卡片 (通用渲染函式)
     function renderLeadCards(snap) {
         let h = '';
+        // 🔥 修正：同時支援 QuerySnapshot (有 .empty) 和 Array (有 .length)
+        const isEmpty = snap.empty || (Array.isArray(snap) && snap.length === 0);
+
+        if (isEmpty) return ''; // 如果沒資料回傳空字串，由外部處理顯示文字
+
         snap.forEach(d => { 
             const l = d.data(); 
             const name = l.userName || l.nickName || 'LINE 用戶';
@@ -432,6 +442,41 @@
             </div>`; 
         });
         return h;
+    }
+
+    // 輔助：統一處理內容顯示 (含無資料畫面)
+    function renderContent(div, snap, filterVal) {
+        // 判斷是否為空
+        const isEmpty = snap.empty || (Array.isArray(snap) && snap.length === 0);
+        
+        if (isEmpty) {
+            div.innerHTML = `<div class="col-12 text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2"></i>目前沒有「${getFilterLabel(filterVal)}」的商機</div>`;
+        } else {
+            div.innerHTML = renderLeadCards(snap);
+        }
+    }
+
+    // 4. 備用過濾 (當索引未建立時)
+    async function loadLeadsFallback(div, filterVal) {
+        try {
+            // 改用最簡單的查詢 (一定會成功)
+            const q = query(collection(db, "leads"), where("clientId", "==", currentDbId), orderBy("createdAt", "desc"));
+            const snap = await getDocs(q);
+            
+            // 在前端進行過濾
+            const filtered = [];
+            snap.forEach(d => { 
+                const s = d.data().status || 'new';
+                if (filterVal === 'all' || s === filterVal) filtered.push(d); 
+            });
+            
+            // 渲染過濾後的陣列
+            renderContent(div, filtered, filterVal);
+            
+        } catch(e) {
+            console.error("備用過濾也失敗:", e);
+            div.innerHTML = `<div class="alert alert-warning">讀取失敗，請稍後再試。(${e.message})</div>`;
+        }
     }
 
     // 3. 更新狀態 API
@@ -513,3 +558,4 @@
 </script>
 </body>
 </html>
+
