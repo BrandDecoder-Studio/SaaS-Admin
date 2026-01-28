@@ -159,7 +159,8 @@
     </div>
 </div>
 
-<div class="modal fade" id="productModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header bg-light"><h5 class="modal-title">商品編輯</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="prod-id"><div class="mb-2"><label>名稱</label><input type="text" id="prod-name" class="form-control"></div><div class="mb-2"><label>價格</label><input type="number" id="prod-price" class="form-control"></div><div class="mb-2"><label>圖片 URL</label><input type="text" id="prod-img" class="form-control"></div><div class="mb-2"><label>導購 URL</label><input type="text" id="prod-url" class="form-control"></div><div class="mb-2"><label>描述</label><textarea id="prod-desc" class="form-control" rows="2"></textarea></div><div class="form-check form-switch mt-3"><input class="form-check-input" type="checkbox" id="prod-listing" checked><label>上架</label></div></div><div class="modal-footer"><button type="button" class="btn btn-primary" onclick="saveProduct()">儲存</button></div></div></div></div>
+<div class="modal fade" id="productModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header bg-light"><h5 class="modal-title">商品編輯</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="prod-id"><div class="mb-2"><label>名稱</label><input type="text" id="prod-name" class="form-control"></div><div class="mb-2"><label>價格</label><input type="text" id="prod-price" class="form-control" placeholder="輸入金額 或 '專案洽詢'"></div><div class="mb-2"><label>圖片 URL</label><input type="text" id="prod-img" class="form-control"></div><div class="mb-2"><label>導購 URL</label><input type="text" id="prod-url" class="form-control"></div><div class="mb-2"><label>描述</label><textarea id="prod-desc" class="form-control" rows="2"></textarea></div><div class="form-check form-switch mt-3"><input class="form-check-input" type="checkbox" id="prod-listing" checked><label>上架</label></div></div><div class="modal-footer"><button type="button" class="btn btn-primary" onclick="saveProduct()">儲存</button></div></div></div></div>
+
 <div class="modal fade" id="qaModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header bg-light"><h5 class="modal-title">QA 編輯</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="qa-id"><div class="mb-3"><label>問題 (Q)</label><input type="text" id="qa-question" class="form-control"></div><div class="mb-2"><label>回答 (A)</label><textarea id="qa-answer" class="form-control" rows="4"></textarea></div></div><div class="modal-footer"><button type="button" class="btn btn-primary" onclick="saveQA()">儲存</button></div></div></div></div>
 <div class="modal fade" id="memberModal" tabindex="-1"><div class="modal-dialog modal-sm"><div class="modal-content"><div class="modal-header bg-light"><h5 class="modal-title">會員編輯</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="member-id"><div class="mb-2"><label>暱稱</label><input type="text" id="member-nick" class="form-control"></div><div class="mb-2"><label>等級</label><select id="member-tier" class="form-select"><option value="Normal">Normal</option><option value="VIP">VIP</option><option value="Blacklist">Blacklist</option></select></div></div><div class="modal-footer"><button type="button" class="btn btn-primary w-100" onclick="saveMember()">更新</button></div></div></div></div>
 
@@ -307,23 +308,18 @@
     // CRUD
     window.loadMembers = async () => loadCollection("members", "member-list", renderMemberTable);
     
-    // 🔥 改寫：Leads 載入改為使用新函式 loadLeads (下方定義)
     // window.loadLeads = async () => loadCollection("leads", "lead-list", renderLeadCards);
     
     window.loadProducts = async () => loadCollection("products", "product-list", renderProductList);
     window.loadQA = async () => loadCollection("knowledge_base", "qa-list", renderQAList);
 
-    // ⬇️ 請用這段覆蓋原本的 loadCollection 函式
     async function loadCollection(colName, divId, renderFn) {
         const div = document.getElementById(divId);
         
-        // 🔥 修正 Loader ID 對應問題
-        // 知識庫的 colName 是 'knowledge_base'，但 HTML ID 是 'loader-qa'
-        // 這裡做一個簡單的對應
         let loaderId = 'loader-' + colName.split('_')[0];
         if (colName === 'knowledge_base') loaderId = 'loader-qa';
 
-        showLoader(loaderId, true); // 開啟轉圈圈
+        showLoader(loaderId, true); 
         div.innerHTML = "";
         
         try {
@@ -338,14 +334,13 @@
             }
         } catch(e) {
             console.error(e);
-            // 顯示紅字錯誤給使用者看，而不是只在 Console 報錯
             div.innerHTML = `<div class="alert alert-danger p-3">
                 <i class="bi bi-exclamation-triangle-fill me-2"></i>
                 讀取失敗 (${e.message})。<br>
                 <small class="ms-4">請嘗試重新整理網頁 (Ctrl+F5)</small>
             </div>`;
         } finally {
-            showLoader(loaderId, false); // 不管成功失敗，一定要關閉轉圈圈
+            showLoader(loaderId, false);
         }
     }
 
@@ -505,7 +500,13 @@
 
     function renderProductList(snap) {
         let h = '<div class="list-group list-group-flush">';
-        snap.forEach(d => { const p = d.data(); h += `<div class="list-group-item d-flex justify-content-between align-items-center py-3"><div class="d-flex align-items-center"><img src="${p.image||'https://placehold.co/50'}" class="img-thumb me-3"><div><div class="fw-bold">${p.name}</div><div class="text-muted small">$${p.price}</div></div></div><div><button class="btn btn-sm btn-outline-primary rounded-circle me-1" onclick='editProduct("${d.id}", ${JSON.stringify(p).replace(/'/g, "&#39;")})'><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-outline-danger rounded-circle" onclick="delDoc('products','${d.id}')"><i class="bi bi-trash"></i></button></div></div>`; });
+        snap.forEach(d => { 
+            const p = d.data(); 
+            // 🔥 修改 2: 顯示邏輯優化，如果是數字才加 $，如果是文字就直接顯示
+            const priceDisplay = !isNaN(p.price) ? `$${p.price}` : p.price;
+            
+            h += `<div class="list-group-item d-flex justify-content-between align-items-center py-3"><div class="d-flex align-items-center"><img src="${p.image||'https://placehold.co/50'}" class="img-thumb me-3"><div><div class="fw-bold">${p.name}</div><div class="text-muted small">${priceDisplay}</div></div></div><div><button class="btn btn-sm btn-outline-primary rounded-circle me-1" onclick='editProduct("${d.id}", ${JSON.stringify(p).replace(/'/g, "&#39;")})'><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-outline-danger rounded-circle" onclick="delDoc('products','${d.id}')"><i class="bi bi-trash"></i></button></div></div>`; 
+        });
         return h + '</div>';
     }
     
@@ -568,9 +569,31 @@
     
     window.editProduct = (id, data) => { document.getElementById('prod-id').value=id; document.getElementById('prod-name').value=data.name; document.getElementById('prod-price').value=data.price; document.getElementById('prod-img').value=data.image; document.getElementById('prod-url').value=data.url; document.getElementById('prod-desc').value=data.desc; document.getElementById('prod-listing').checked=data.listing!==false; prodModal.show(); };
     window.openProductModal = () => { document.getElementById('prod-id').value=""; document.getElementById('prod-name').value=""; document.getElementById('prod-price').value=""; prodModal.show(); };
+    
+    // 🔥 修改 3: 存檔邏輯優化，如果是文字就存文字，是數字就存數字
     window.saveProduct = async () => {
         const id = document.getElementById('prod-id').value;
-        const d = { clientId: currentDbId, name: document.getElementById('prod-name').value, price: Number(document.getElementById('prod-price').value), image: document.getElementById('prod-img').value, url: document.getElementById('prod-url').value, desc: document.getElementById('prod-desc').value, listing: document.getElementById('prod-listing').checked, updatedAt: new Date() };
+        
+        let rawPrice = document.getElementById('prod-price').value.trim();
+        let finalPrice;
+        if (rawPrice === "") {
+            finalPrice = 0;
+        } else if (!isNaN(rawPrice)) {
+            finalPrice = Number(rawPrice);
+        } else {
+            finalPrice = rawPrice;
+        }
+
+        const d = { 
+            clientId: currentDbId, 
+            name: document.getElementById('prod-name').value, 
+            price: finalPrice, // 這裡使用智慧判斷後的價格
+            image: document.getElementById('prod-img').value, 
+            url: document.getElementById('prod-url').value, 
+            desc: document.getElementById('prod-desc').value, 
+            listing: document.getElementById('prod-listing').checked, 
+            updatedAt: new Date() 
+        };
         if(id) await updateDoc(doc(db, "products", id), d); else await addDoc(collection(db, "products"), d);
         prodModal.hide(); loadProducts();
     };
@@ -608,5 +631,3 @@
 </script>
 </body>
 </html>
-
-
