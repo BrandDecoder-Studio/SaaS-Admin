@@ -633,31 +633,49 @@
 
 
     window.handleSyncXML = function() {
-        const btn = document.getElementById('btn-sync-xml');
-        
-        if(!confirm("確定要執行 XML 商品同步嗎？\n(這將會消耗一次系統操作額度)")) return;
+    const btn = document.getElementById('btn-sync-xml');
     
-        // 鎖住按鈕避免重複按
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 同步中...';
-    
-        // 呼叫後端 GAS
-        google.script.run
-            .withSuccessHandler(function(res) {
-                alert("✅ 同步完成！\n" + res);
-                btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-cloud-download-fill"></i> 同步 XML';
-                loadProducts(); // 重新載入列表
-            })
-            .withFailureHandler(function(err) {
-                alert("❌ 同步失敗: " + err.message);
-                btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-cloud-download-fill"></i> 同步 XML';
-            })
-            .manualSyncProducts(currentDbId); // 呼叫後端函式
-    };
+    // 🔴 請將這裡換成您剛剛複製的 "網頁應用程式網址"
+        const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxK-UD2IMkH5gHNzEBsk5lICKT0Mel7dv2iIBYIvylFf6ynsD-ybOP8RkhuC_pBUrPNzg/exec"; 
+
+    if(!confirm("確定要執行 XML 商品同步嗎？\n(這將會消耗一次系統操作額度)")) return;
+
+    // 鎖住按鈕
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 同步中...';
+
+    // 🔥 使用 fetch 跨網域呼叫 GAS
+    fetch(GAS_API_URL, {
+        method: "POST",
+        // 使用 text/plain 避免 CORS 預檢請求失敗
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+            action: "manualSyncProducts",  // 告訴後端我要做同步
+            clientId: currentDbId          // 告訴後端我是誰
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.status === 'success'){
+            alert("✅ " + data.msg);
+            loadProducts(); // 重新載入列表
+        } else {
+            alert("❌ 錯誤: " + JSON.stringify(data));
+        }
+    })
+    .catch(error => {
+        console.error(error);
+        alert("⚠️ 連線失敗，請檢查網路或 GAS 部署。");
+    })
+    .finally(() => {
+        // 恢復按鈕
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-cloud-download-fill"></i> 同步 XML';
+    });
+};
     
 </script>
 </body>
 </html>
+
 
