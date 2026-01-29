@@ -632,7 +632,12 @@
     function showLoader(id, show) { const el = document.getElementById(id); if(el) el.style.display = show ? 'flex' : 'none'; }
 
 
-    window.handleSyncXML = function() {
+    // 🔥 新增這行防呆檢查
+    if (!currentDbId) {
+        alert("❌ 錯誤：無法取得 Client ID，請先進入客戶詳情頁面。");
+        return;
+    }
+
     const btn = document.getElementById('btn-sync-xml');
     
     // 🔴 請將這裡換成您剛剛複製的 "網頁應用程式網址"
@@ -677,5 +682,6 @@
 </script>
 </body>
 </html>
+
 
 
