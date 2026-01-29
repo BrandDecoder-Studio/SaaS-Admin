@@ -145,7 +145,10 @@
 
             <div class="tab-pane fade" id="tab-products">
                 <div class="card">
-                    <div class="card-header bg-white d-flex justify-content-between"><h6 class="mb-0 fw-bold">商品管理</h6><div><button onclick="openProductModal()" class="btn btn-success btn-sm me-1">新增</button><button onclick="loadProducts()" class="btn btn-light btn-sm border">刷新</button></div></div>
+                    <div class="card-header bg-white d-flex justify-content-between"><h6 class="mb-0 fw-bold">商品管理</h6><div><button onclick="openProductModal()" class="btn btn-success btn-sm me-1">新增</button><button onclick="handleSyncXML()" id="btn-sync-xml" class="btn btn-warning btn-sm border me-1">
+                            <i class="bi bi-cloud-download-fill"></i> 同步 XML
+                        </button>
+                        <button onclick="loadProducts()" class="btn btn-light btn-sm border">刷新</button></div></div>
                     <div class="card-body p-0"><div id="loader-products" class="loading-overlay"><div class="spinner-border text-primary"></div></div><div id="product-list"></div></div>
                 </div>
             </div>
@@ -627,7 +630,34 @@
     function toggleTopBadge(id, ts, now) { const el=document.getElementById(id); if(ts && new Date(ts.seconds*1000) > now) { el.className="badge bg-success me-1"; } else { el.className="badge bg-secondary me-1"; } }
     function updateStatus(id, val) { const el=document.getElementById(id); if(!val || val.includes("WAITING")) { el.className="badge bg-warning text-dark"; el.innerText="WAITING"; } else { el.className="badge bg-success"; el.innerText="ACTIVE"; } }
     function showLoader(id, show) { const el = document.getElementById(id); if(el) el.style.display = show ? 'flex' : 'none'; }
+
+
+    window.handleSyncXML = function() {
+        const btn = document.getElementById('btn-sync-xml');
+        
+        if(!confirm("確定要執行 XML 商品同步嗎？\n(這將會消耗一次系統操作額度)")) return;
+    
+        // 鎖住按鈕避免重複按
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 同步中...';
+    
+        // 呼叫後端 GAS
+        google.script.run
+            .withSuccessHandler(function(res) {
+                alert("✅ 同步完成！\n" + res);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-cloud-download-fill"></i> 同步 XML';
+                loadProducts(); // 重新載入列表
+            })
+            .withFailureHandler(function(err) {
+                alert("❌ 同步失敗: " + err.message);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-cloud-download-fill"></i> 同步 XML';
+            })
+            .manualSyncProducts(currentDbId); // 呼叫後端函式
+    };
     
 </script>
 </body>
 </html>
+
