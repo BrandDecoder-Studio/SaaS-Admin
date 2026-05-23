@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>品智 AI 戰情中控台 v23.3</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body { background-color: #f0f2f5; font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; }
+        .view-section { display: none; }
+        .active-section { display: block; animation: fadeIn 0.3s; }
+        .card { border: none; border-radius: 12px; transition: all 0.2s; }
+        .card-hover:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); cursor: pointer; }
+        .loading-overlay { display: none; text-align: center; padding: 20px; color: #6c757d; }
+        .prompt-preview { font-family: 'Consolas', monospace; font-size: 0.85rem; color: #00ff41; background: #212529; border: none; resize: none; height: 100%; min-height: 450px;}
+        .prod-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; background: #eee; }
+        .log-json { font-family: 'Consolas', monospace; font-size: 0.85em; background: #f1f3f5; padding: 10px; border-radius: 5px; white-space: pre-wrap; word-break: break-all; }
+        
+        .kpi-card { background: #fff; border-bottom: 4px solid #eee; }
+        .kpi-value { font-size: 1.8rem; font-weight: 700; color: #333; }
+        .kpi-label { font-size: 0.8rem; color: #6c757d; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .chart-container { position: relative; height: 300px; width: 100%; }
+
+        .text-purple { color: #6f42c1 !important; }
+        .text-orange { color: #fd7e14 !important; }
+
+        .info-icon { cursor: pointer; color: #6c757d; font-size: 0.9rem; }
+        .info-icon:hover { color: #0d6efd; }
+
+        .tag-chip { background-color: #e9ecef; border: 1px solid #dee2e6; border-radius: 50px; padding: 4px 12px; font-size: 0.85rem; display: flex; align-items: center; transition: all 0.2s; white-space: nowrap; }
+        .tag-chip:hover { background-color: #dee2e6; }
+        .tag-chip .bi-x-circle-fill { margin-left: 8px; font-size: 0.9rem; color: #6c757d; }
+        .tag-chip .bi-x-circle-fill:hover { color: #dc3545; }
+
+        #main-tabs { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; white-space: nowrap; padding-bottom: 2px; }
+        #main-tabs::-webkit-scrollbar { height: 4px; }
+        #main-tabs::-webkit-scrollbar-track { background: #f1f1f1; }
+        #main-tabs::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+
+        /* 🌟 進階版積木漏斗 CSS */
+        .funnel-container { display: flex; flex-direction: column; align-items: center; width: 100%; padding: 10px 0; }
+        .funnel-stage { 
+            padding: 12px 15px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            color: white; 
+            font-weight: bold; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+            transition: all 0.3s; 
+            margin-bottom: 2px; 
+        }
+        .funnel-stage:hover { transform: scale(1.02); z-index: 10; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        .funnel-stage:first-child { border-radius: 8px 8px 0 0; }
+        .funnel-stage:last-child { border-radius: 0 0 8px 8px; margin-bottom: 0; }
+        .funnel-stage:not(:first-child):not(:last-child) { border-radius: 0; }
+        
+        .funnel-rate-inline { 
+            background: rgba(255, 255, 255, 0.2); 
+            padding: 2px 8px; 
+            border-radius: 4px; 
+            font-size: 0.75rem; 
+            margin-right: 15px;
+            border: 1px solid rgba(255,255,255,0.4);
+        }
+
+        /* 🌟 AI 核心指令配置：光譜戰鬥拉桿 */
+        #pb-role-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 10px;
+            border-radius: 6px;
+            /* 核心魔法：專業藍 -> 中性紫 -> 轉化紅 */
+            background: linear-gradient(to right, #007bff 0%, #6f42c1 50%, #dc3545 100%);
+            outline: none;
+            opacity: 0.85;
+            transition: opacity 0.2s;
+            cursor: pointer;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+            margin-top: 5px;
+        }
+        #pb-role-slider:hover { opacity: 1; }
+        #pb-role-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #ffffff;
+            border: 3px solid var(--thumb-color, #6f42c1); /* 吃 JS 傳來的動態顏色 */
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            cursor: grab;
+            transition: transform 0.1s ease-in-out, border-color 0.2s;
+        }
+        #pb-role-slider::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(1.15); }
+
+        /* 法務 Modal 共用樣式 */
+        #legal-modals-container .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(5px); display: flex; justify-content: center; align-items: center; z-index: 2000; opacity: 0; visibility: hidden; transition: 0.3s; text-align: left;}
+        #legal-modals-container .modal-overlay.active { opacity: 1; visibility: visible; }
+        #legal-modals-container .modal-content { background: #111; width: 90%; max-width: 600px; max-height: 80vh; border: 1px solid #d4af37; border-radius: 8px; padding: 30px; position: relative; overflow-y: auto; color: #ddd; box-shadow: 0 10px 30px rgba(0,0,0,0.5); transform: translateY(20px); transition: 0.3s; }
+        #legal-modals-container .modal-overlay.active .modal-content { transform: translateY(0); }
+        #legal-modals-container .modal-close { position: absolute; top: 15px; right: 20px; font-size: 1.5rem; color: #888; cursor: pointer; transition: 0.2s; background: none; border: none; }
+        #legal-modals-container .modal-close:hover { color: #fff; }
+        #legal-modals-container .modal-content h2 { color: #d4af37; margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; font-size: 1.5rem; font-weight: bold;}
+        #legal-modals-container .modal-content h4 { color: #fff; margin-top: 20px; margin-bottom: 10px; font-size: 1.1rem; font-weight: bold;}
+        #legal-modals-container .modal-content p, #legal-modals-container .modal-content li { font-size: 0.95rem; margin-bottom: 10px; color: #bbb; line-height: 1.6;}
+
+        /* 🌟 分類管理 UI 樣式 */
+        .cat-item { cursor: pointer; transition: background-color 0.2s; border-left: 4px solid transparent; }
+        .cat-item:hover { background-color: #f8f9fa; }
+        .cat-item.active { 
+            background-color: #e9ecef !important; 
+            border-left: 4px solid #0d6efd !important; 
+            color: #212529 !important; /* 👈 關鍵：強制字體變深灰色，解決反白看不見的問題 */
+            font-weight: bold;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow-sm">
+    <div class="container">
+        <a class="navbar-brand fw-bold" href="#"><i class="bi bi-cpu text-warning me-2"></i>品智 AI 中控</a>
+        <div class="d-flex align-items-center">
+            <span id="user-display" class="text-light me-3 small d-none d-md-inline opacity-75"></span>
+            <span id="role-badge" class="badge bg-warning text-dark me-3" style="display:none">SUPER ADMIN</span>
+            <button onclick="window.handleLogout()" id="btn-logout" class="btn btn-outline-light btn-sm" style="display:none">登出</button>
+        </div>
+    </div>
+</nav>
+
+<div class="container pb-5">
+    <div id="login-view" class="view-section active-section text-center mt-5">
+        <div class="card mx-auto shadow border-0" style="max-width: 420px;">
+            <div class="card-body p-5">
+                <i class="bi bi-person-circle text-primary" style="font-size: 3rem;"></i>
+                <h4 class="mt-3 mb-4 fw-bold">SaaS 戰情室登入</h4>
+                
+                <div class="form-check text-start mb-4 bg-light p-3 rounded border">
+                    <input class="form-check-input mt-1" type="checkbox" id="legal-agreement-check" style="cursor: pointer;">
+                    <label class="form-check-label small text-muted" for="legal-agreement-check" style="cursor: pointer; line-height: 1.5;">
+                        我已詳細閱讀並同意品智 SaaS 的 
+                        <a href="javascript:void(0)" onclick="openModal('modal-tos')" class="text-primary text-decoration-none fw-bold">《服務條款》</a>、
+                        <a href="javascript:void(0)" onclick="openModal('modal-privacy')" class="text-primary text-decoration-none fw-bold">《隱私政策》</a>、
+                        <a href="javascript:void(0)" onclick="openModal('modal-refund')" class="text-primary text-decoration-none fw-bold">《退款與點數政策》</a>、
+                        <a href="javascript:void(0)" onclick="openModal('modal-aup')" class="text-primary text-decoration-none fw-bold">《可接受使用政策》</a> 與 
+                        <a href="javascript:void(0)" onclick="openModal('modal-security')" class="text-primary text-decoration-none fw-bold">《資安保護聲明》</a>。
+                    </label>
+                </div>
+
+                <button onclick="window.checkAgreementAndLogin()" class="btn btn-primary w-100 rounded-pill py-2 fw-bold">
+                    <i class="bi bi-google me-2"></i> Google 授權登入
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="dashboard-view" class="view-section">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+            <h4 class="fw-bold mb-0">專案管理列表</h4>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <button id="btn-settle-agent" class="btn btn-sm btn-outline-success fw-bold" style="display:none;" onclick="window.showSettlementWizard()">
+                    <i class="bi bi-cash-stack"></i> 代理商結算
+                </button>
+                
+                <button id="btn-view-applications" class="btn btn-sm btn-warning fw-bold" style="display:none;" onclick="window.openApplicationsModal()">
+                    <i class="bi bi-card-checklist"></i> 待審核申請單 <span id="pending-app-count" class="badge bg-danger ms-1" style="display:none;">0</span>
+                </button>
+                <button id="btn-create-client" class="btn btn-sm btn-success" style="display:none;" onclick="window.createNewClient()"><i class="bi bi-plus-lg"></i> 新增客戶</button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="location.reload()"><i class="bi bi-arrow-clockwise"></i> 刷新</button>
+            </div>
+        </div>
+        <div id="loader-list" class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+        <div id="client-list" class="row g-4"></div>
+    </div>
+
+    <div id="detail-view" class="view-section">
+        <div class="mb-3">
+            <a href="javascript:void(0)" onclick="window.showDashboard()" id="btn-back-list" class="d-inline-flex align-items-center text-decoration-none text-secondary fw-bold fs-5" style="display:none;"><i class="bi bi-arrow-left-circle-fill me-2 text-primary"></i> 返回列表</a>
+        </div>
+        
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body p-4">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                    <div style="min-width: 0;">
+                        <h2 id="detail-title" class="fw-bold mb-1">...</h2>
+                    </div>
+                    <div class="text-md-end">
+                        <span class="badge bg-warning text-dark border fs-6 shadow-sm"><i class="bi bi-coin"></i> 點數: <span id="top-badge-points">...</span></span>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-white p-0">
+                <ul class="nav nav-tabs nav-fill border-bottom-0" id="main-tabs" role="tablist">
+                    <li class="nav-item" role="presentation"><a class="nav-link active" id="billing-tab" data-bs-toggle="tab" data-bs-target="#tab-billing" role="tab" onclick="window.loadBillingStats()"><i class="bi bi-speedometer2"></i> 戰情中心</a></li>
+                    <li class="nav-item" role="presentation"><a class="nav-link" id="settings-tab" data-bs-toggle="tab" data-bs-target="#tab-settings" role="tab" onclick="setTimeout(window.updatePromptPreview, 50)"><i class="bi bi-brain"></i> AI 大腦</a></li>
+                    <li class="nav-item" role="presentation"><a class="nav-link" id="o2o-tab" data-bs-toggle="tab" data-bs-target="#tab-o2o" role="tab" onclick="setTimeout(window.initGoogleMapsAutocomplete, 500)"><i class="bi bi-geo-alt"></i> O2O 門市</a></li>
+                    <li class="nav-item" role="presentation"><a class="nav-link" id="products-tab" data-bs-toggle="tab" data-bs-target="#tab-products" role="tab" onclick="window.loadProducts()"><i class="bi bi-box-seam"></i> 商品庫</a></li>
+                    <li class="nav-item" role="presentation"><a class="nav-link" id="qa-tab" data-bs-toggle="tab" data-bs-target="#tab-qa" role="tab" onclick="window.loadQA()"><i class="bi bi-chat-dots"></i> QA 知識</a></li>
+                    <li class="nav-item" role="presentation"><a class="nav-link" id="leads-tab" data-bs-toggle="tab" data-bs-target="#tab-leads" role="tab" onclick="window.loadLeads()"><i class="bi bi-radar"></i> 商機</a></li>
+                    <li class="nav-item" role="presentation"><a class="nav-link" id="members-tab" data-bs-toggle="tab" data-bs-target="#tab-members" role="tab" onclick="window.loadMembers()"><i class="bi bi-people"></i> CRM</a></li>
+                    <li class="nav-item" role="presentation"><a class="nav-link" id="logs-tab" data-bs-toggle="tab" data-bs-target="#tab-logs" role="tab" onclick="window.loadAuditLogs()"><i class="bi bi-list-columns"></i> 日誌</a></li>
+                    <li class="nav-item" role="presentation"><a class="nav-link text-success fw-bold" id="integration-tab" data-bs-toggle="tab" data-bs-target="#tab-integration" role="tab"><i class="bi bi-plug-fill"></i> 通道對接</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="tab-content" id="main-tabs-content">
+            
+            <div class="tab-pane fade show active" id="tab-billing" role="tabpanel" aria-labelledby="billing-tab">
+                <div class="row g-3">
+                    <div class="col-12 col-md-4 col-lg-3">
+                        <div class="card h-100 border-0 shadow-sm overflow-hidden">
+                            <div class="card-header bg-primary text-white fw-bold"><i class="bi bi-wallet2 me-2"></i>資源消耗水位</div>
+                            <div class="card-body text-center py-4">
+                                <h6 class="text-muted mb-2" id="billing-month-title">...</h6>
+                                <h1 class="display-5 fw-bold text-danger mb-0" id="billing-usage-points">0</h1>
+                                <p class="small text-muted mb-4">本月累計扣點</p>
+                                <hr class="my-4 opacity-25">
+                                <div class="row">
+                                    <div class="col-6 border-end">
+                                        <div class="kpi-value fs-4" id="billing-usage-count">0</div>
+                                        <div class="kpi-label mt-1">執行次數</div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="kpi-value fs-4 text-success" id="billing-balance">0</div>
+                                        <div class="kpi-label mt-1">剩餘點數</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-12 col-md-8 col-lg-9">
+                        <div class="row g-2 g-md-3">
+                            <div class="col-4">
+                                <div class="card kpi-card p-2 p-md-3 shadow-sm border-success text-center text-md-start h-100">
+                                    <div class="kpi-label text-success mb-1"><i class="bi bi-robot me-1"></i><span class="d-none d-md-inline"> AI 接待</span><small class="text-muted fw-normal ms-1 d-none d-lg-inline dynamic-period">(本期)</small></div>
+                                    <div class="kpi-value fs-3 fs-md-2" id="kpi-ai-chats">0</div>
+                                    <div id="mom-ai-chats" class="mt-1" style="font-size: 0.75rem; min-height: 18px;"></div>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="card kpi-card p-2 p-md-3 shadow-sm border-info text-center text-md-start h-100">
+                                    <div class="kpi-label text-info mb-1"><i class="bi bi-cart-check me-1"></i><span class="d-none d-md-inline"> 精準導購</span><small class="text-muted fw-normal ms-1 d-none d-lg-inline dynamic-period">(本期)</small></div>
+                                    <div class="kpi-value fs-3 fs-md-2" id="kpi-ai-recommends">0</div>
+                                    <div id="mom-recommends" class="mt-1" style="font-size: 0.75rem; min-height: 18px;"></div>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="card kpi-card p-2 p-md-3 shadow-sm border-warning text-center text-md-start h-100">
+                                    <div class="kpi-label text-warning mb-1"><i class="bi bi-hand-index-thumb me-1"></i><span class="d-none d-md-inline"> 點擊率</span><small class="text-muted fw-normal ms-1 d-none d-lg-inline dynamic-period">(本期)</small></div>
+                                    <div class="kpi-value fs-3 fs-md-2"><span id="kpi-ctr-rate">0</span><small class="fs-6">%</small></div>
+                                    <div id="mom-ctr" class="mt-1" style="font-size: 0.75rem; min-height: 18px;"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mt-1">
+                            <div class="col-12 col-lg-5">
+                                <div class="card bg-white border-0 shadow-sm h-100 p-3" style="border-left: 4px solid #6f42c1 !important;">
+                                    <div class="d-flex flex-column justify-content-center h-100">
+                                        <div class="mb-3 border-bottom pb-2">
+                                            <div class="text-muted small fw-bold text-uppercase mb-1"><i class="bi bi-hourglass-split me-1 text-purple"></i>AI 替您省下的客服薪資</div>
+                                            <h2 class="fw-bold mb-0 text-dark" id="kpi-saved-cost">$0 <span class="small text-muted fw-normal fs-6">/ <span id="kpi-saved-hours">0</span> 小時</span></h2>
+                                            <div id="mom-saved-cost" class="mt-1" style="font-size: 0.75rem; min-height: 18px;"></div>
+                                        </div>
+                                        <div>
+                                            <div class="text-muted small fw-bold text-uppercase mb-1"><i class="bi bi-radar me-1 text-orange"></i>AI 商機轉化數量</div>
+                                            <h2 class="fw-bold mb-0 text-dark"><span id="kpi-lead-count" style="color: #fd7e14;">0</span> 筆 <span class="small text-muted fw-normal fs-6">/ 轉化率 <span id="kpi-lead-rate">0</span>%</span></h2>
+                                            <div id="mom-lead-rate" class="mt-1" style="font-size: 0.75rem; min-height: 18px;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12 col-lg-7">
+                                <div class="card bg-white border-0 shadow-sm h-100 p-3 pb-4">
+                                    <h6 class="fw-bold text-muted small mb-3"><i class="bi bi-funnel-fill me-1"></i>商機轉化漏斗 <span class="dynamic-period">(本期)</span></h6>
+                                    
+                                    <div class="funnel-container">
+                                        <div class="funnel-stage" style="background: linear-gradient(90deg, #6c757d, #adb5bd); width: 100%;">
+                                            <div class="d-flex align-items-center">
+                                                <i class="bi bi-chat-dots me-2"></i>1. 總對話數
+                                            </div>
+                                            <div class="d-flex align-items-center">
+                                                <span class="fs-5" id="funnel-chats">0</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="funnel-stage" style="background: linear-gradient(90deg, #0dcaf0, #4dd4ac); width: 85%;">
+                                            <div class="d-flex align-items-center">
+                                                <i class="bi bi-cart-check me-2"></i>2. 曝光推薦
+                                            </div>
+                                            <div class="d-flex align-items-center">
+                                                <span class="funnel-rate-inline" id="funnel-rate-1">0%</span>
+                                                <span class="fs-5" id="funnel-recommends">0</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="funnel-stage" style="background: linear-gradient(90deg, #ffc107, #ffcd39); width: 70%;">
+                                            <div>
+                                                <div class="d-flex align-items-center text-dark">
+                                                    <i class="bi bi-hand-index-thumb me-2"></i>3. 卡片點擊
+                                                </div>
+                                                <div class="fw-normal text-dark mt-1" style="font-size: 0.65rem; opacity: 0.8;">
+                                                    商品: <span id="funnel-clicks-prod">0</span> | 地圖: <span id="funnel-clicks-map">0</span>
+                                                </div>
+                                            </div>
+                                            <div class="d-flex align-items-center text-dark">
+                                                <span class="funnel-rate-inline text-dark border-dark" style="background: rgba(0,0,0,0.05);" id="funnel-rate-2">0%</span>
+                                                <span class="fs-5" id="funnel-clicks">0</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="funnel-stage" style="background: linear-gradient(90deg, #198754, #20c997); width: 50%;">
+                                            <div class="d-flex align-items-center">
+                                                <i class="bi bi-check-circle-fill me-2"></i>4. 商機結單
+                                            </div>
+                                            <div class="d-flex align-items-center">
+                                                <span class="funnel-rate-inline" id="funnel-rate-3">0%</span>
+                                                <span class="fs-5" id="funnel-leads">0</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mt-1">
+                            <div class="col-12 col-lg-6">
+                                <div class="card shadow-sm border-0 h-100">
+                                    <div class="card-header bg-white py-2"><h6 class="mb-0 fw-bold small text-muted"><i class="bi bi-activity me-2"></i>近期導購趨勢 (近 7 日)</h6></div>
+                                    <div class="card-body p-2"><div class="chart-container" style="height: 220px;"><canvas id="trafficTrendChart"></canvas></div></div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-12 col-lg-6">
+                                <div class="card shadow-sm border-0 h-100" style="border-radius: 12px;">
+                                    <div class="card-header bg-white border-0 pt-3 pb-2 border-bottom d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="fw-bold mb-0" style="color: #d4af37; font-size: 1rem;">
+                                                <i class="bi bi-fire me-2"></i>智能導購爆款排行 (Top 5)
+                                            </h6>
+                                            <p class="text-muted small mb-0 mt-1" style="font-size: 0.75rem;">AI 主動拋單成功次數</p>
+                                        </div>
+                                        <select id="top-products-range" class="form-select form-select-sm" style="width: auto; font-size: 0.8rem;" onchange="window.loadTopProducts(this.value)">
+                                            <option value="1">近 1 天</option>
+                                            <option value="3" selected>近 3 天</option>
+                                            <option value="7">近 7 天</option>
+                                            <option value="14">近 14 天</option>
+                                        </select>
+                                    </div>
+                                    <div class="card-body p-3 overflow-auto" style="max-height: 250px;">
+                                        <div id="top-products-list">
+                                            <div class="text-center text-muted py-4 small">
+                                                <div class="spinner-border spinner-border-sm text-warning mb-2" role="status"></div>
+                                                <br>數據分析中...
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-2 g-md-3 mt-1">
+                            <div class="col-12 col-md-5 col-lg-4">
+                                <div class="card shadow-sm border-0 h-100">
+                                    <div class="card-header bg-white py-2"><h6 class="mb-0 fw-bold small text-muted"><i class="bi bi-pie-chart-fill me-2"></i>顧客意圖分析 <span class="fw-normal dynamic-period">(本期)</span></h6></div>
+                                    <div class="card-body p-2 d-flex justify-content-center align-items-center">
+                                        <div style="position: relative; height: 200px; width: 100%;"><canvas id="intentChart"></canvas></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-7 col-lg-8">
+                                <div class="card shadow-sm border-0 h-100">
+                                    <div class="card-header bg-white py-2"><h6 class="mb-0 fw-bold small text-muted"><i class="bi bi-clock-history me-2"></i>24H 顧客活躍熱區 <span class="fw-normal dynamic-period">(本期)</span></h6></div>
+                                    <div class="card-body p-2">
+                                        <div class="chart-container" style="height: 200px;"><canvas id="heatmapChart"></canvas></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+                
+               <div id="admin-topup-panel" class="card border-warning shadow-sm mt-4" style="display:none;">
+                   <div class="card-header bg-warning text-dark fw-bold"><i class="bi bi-shield-lock me-2"></i>超級管理員面板 (Super Admin)</div>
+                    <div class="card-body">
+                        <div class="row g-3 align-items-end">
+                            
+                            <div class="col-md-8">
+                                <label class="form-label small fw-bold">帳務與分潤作業</label>
+                               <button class="btn btn-primary w-100 fw-bold shadow-sm" onclick="window.initAdminTopUp(window.currentDocId, window.currentClientData.name)">
+                                    <i class="bi bi-cash-coin me-1"></i> 啟動儲值與分潤精靈
+                                </button>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold">專案狀態管理</label>
+                                <button id="admin-status-btn" class="btn btn-success w-100 fw-bold shadow-sm" onclick="window.toggleClientStatus()">
+                                    <i class="bi bi-power"></i> 🟢 運行中 (點擊停權)
+                                </button>
+                            </div>
+                            
+                        </div>
+                    </div>
+                </div>
+            </div> <div class="tab-pane fade" id="tab-settings" role="tabpanel" aria-labelledby="settings-tab">
+                <div class="row justify-content-center g-4">
+                    <div id="prompt-settings-col" class="col-12">
+                        <div class="card h-100 shadow-sm border-0">
+                            <div class="card-header bg-white py-3"><h6 class="mb-0 fw-bold text-primary"><i class="bi bi-sliders"></i> AI 核心指令配置</h6></div>
+                            <div class="card-body bg-light">
+                                
+                                <div class="prompt-block mb-3 p-3 bg-white rounded border shadow-sm">
+                                    <h6 class="fw-bold small text-muted mb-3">1. 品牌靈魂 (Identity & Persona)</h6>
+                                    <div class="row g-3">
+                                        <div class="col-md-4">
+                                            <label class="form-label small fw-bold">行業別</label>
+                                            <select id="pb-industry" class="form-select form-select-sm" onchange="window.updatePromptPreview()">
+                                                <option value="Retail">🛍️ 批發零售與電商</option>
+                                                <option value="RealEstate">🏠 不動產與營建裝修</option>
+                                                <option value="BeautyMedical">💆 美容與醫療保健</option>
+                                                <option value="Hospitality">🍽️ 餐飲與旅宿業</option>
+                                                <option value="Professional">💼 專業顧問與 B2B</option>
+                                                <option value="Education">📚 教育與休閒娛樂</option>
+                                                <option value="GeneralService">🛎️ 綜合一般服務業</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label small fw-bold">品牌名稱</label>
+                                            <input type="text" id="pb-brand" class="form-control form-control-sm" placeholder="例如: 星巴克" oninput="window.updatePromptPreview()">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label small fw-bold d-flex align-items-center">
+                                                品牌定位
+                                                <i class="bi bi-question-circle-fill ms-1 info-icon" tabindex="0" data-bs-toggle="popover" data-bs-content="決定 AI 的氣質與詞彙級別，例如高端品牌會使用更尊榮的字眼。"></i>
+                                            </label>
+                                            <select id="pb-vibe" class="form-select form-select-sm" onchange="window.updatePromptPreview()">
+                                                <option value="Friendly and Approachable">🤝 親民實惠 (接地氣)</option>
+                                                <option value="Premium and Luxury">💎 高端奢華 (尊榮感)</option>
+                                                <option value="Professional and Authoritative">👔 專業權威 (專家氣場)</option>
+                                                <option value="Young and Energetic">✨ 年輕活力 (社群感)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <hr class="my-3 opacity-25">
+                                    <div class="row g-3">
+                                        <div class="col-md-7">
+                                            <label class="form-label d-flex justify-content-between fw-bold mb-2">
+                                                <span class="small d-flex align-items-center">
+                                                    🤖 擔任角色 (漏斗定位)
+                                                    <i class="bi bi-question-circle-fill ms-1 info-icon text-primary" tabindex="0" data-bs-toggle="popover" data-bs-content="向右拉偏向主動推銷，向左拉偏向解答問題與專業諮詢。"></i>
+                                                </span>
+                                                <span id="pb-role-display" class="badge bg-primary fs-6 shadow-sm">銷售 70% | 接待 30%</span>
+                                            </label>
+                                            <div class="px-2 mt-1">
+                                                <input type="range" class="form-range custom-slider" id="pb-role-slider" min="0" max="100" step="10" value="70">
+                                                <div class="d-flex justify-content-between mt-1">
+                                                    <small class="text-info fw-bold" style="font-size: 0.75rem;"><i class="bi bi-chat-quote-fill"></i> 100% 顧問</small>
+                                                    <small class="text-muted" style="font-size: 0.7rem;">向右拖動增強 AI 銷售火力</small>
+                                                    <small class="text-danger fw-bold" style="font-size: 0.75rem;"><i class="bi bi-graph-up-arrow"></i> 100% 銷售</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-5">
+                                            <label class="form-label small fw-bold d-flex align-items-center">
+                                                溝通風格
+                                                <i class="bi bi-question-circle-fill ms-1 info-icon" tabindex="0" data-bs-toggle="popover" data-bs-content="規範 AI 的排版與表情符號 (Emoji) 使用量。"></i>
+                                            </label>
+                                            <select id="pb-style" class="form-select form-select-sm" onchange="window.updatePromptPreview()">
+                                                <option value="Enthusiastic with Emojis">熱情活潑 (多 Emoji)</option>
+                                                <option value="Professional and Objective">專業沉穩 (嚴禁 Emoji)</option>
+                                                <option value="Empathetic and Gentle">貼心知性 (具同理心)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="prompt-block mb-3 p-3 bg-white rounded border shadow-sm">
+                                    <h6 class="fw-bold small text-muted mb-2">
+                                        2. 結構與成本控制 (Structure & Cost)
+                                        <i class="bi bi-question-circle-fill ms-1 info-icon" tabindex="0" data-bs-toggle="popover" data-bs-content="設定絕對上限以防 AI 廢話耗損點數。標準模式兼顧體驗與成本。"></i>
+                                    </h6>
+                                    <div class="row g-3 mb-3">
+                                        <div class="col-md-12">
+                                            <div class="btn-group w-100 btn-group-sm">
+                                                <input type="radio" class="btn-check" name="pb-length" id="len-short" value="Short" onchange="window.updatePromptPreview()">
+                                                <label class="btn btn-outline-secondary" for="len-short">精簡 (50字內)</label>
+                                                <input type="radio" class="btn-check" name="pb-length" id="len-std" value="Standard" checked onchange="window.updatePromptPreview()">
+                                                <label class="btn btn-outline-primary fw-bold" for="len-std">標準 (150字內)</label>
+                                                <input type="radio" class="btn-check" name="pb-length" id="len-long" value="Long" onchange="window.updatePromptPreview()">
+                                                <label class="btn btn-outline-secondary" for="len-long">詳細 (300字內)</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row g-3 border-top pt-3">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label text-muted small fw-bold"><i class="bi bi-cpu"></i> 記憶容量 (上下文長度)</label>
+                                            <select id="pb-memory" class="form-select shadow-sm border-0 bg-light" onchange="window.updatePromptPreview()">
+                                                <option value="0">🐠 金魚腦 (0 組：不記前言，最省點數)</option>
+                                                <option value="3">🧠 短期記憶 (3 組：適合一般客服)</option>
+                                                <option value="6">🧠 標準記憶 (6 組：流暢對話推薦)</option>
+                                                <option value="12">🐘 深度記憶 (12 組：適合長線導購)</option>
+                                            </select>
+                                            <div class="form-text" style="font-size: 0.75rem;">數字越大 AI 越聰明，但消耗點數較多。</div>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label text-muted small fw-bold"><i class="bi bi-shield-lock"></i> 防刷頻警戒線 (Troll-Alert)</label>
+                                            <select id="pb-troll-alert" class="form-select shadow-sm border-0 bg-light" onchange="window.updatePromptPreview()">
+                                                <option value="3">⚡ 嚴格 (3 次：快速切換真人)</option>
+                                                <option value="5">🛡️ 標準 (5 次：預設推薦)</option>
+                                                <option value="10">🐢 寬鬆 (10 次：容忍度較高)</option>
+                                                <option value="0">❌ 關閉 (無限閒聊：燒錢警告)</option>
+                                            </select>
+                                            <div class="form-text" style="font-size: 0.75rem;">連續無商業意圖閒聊達此上限，AI 將自動鎖定並通知專人。</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div id="super-admin-prompt-block" class="prompt-prompt-block mt-4 mb-3 p-3 rounded border shadow-sm" style="display:none; background-color: #1a1d20; border-color: #d4af37 !important;">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="fw-bold mb-0" style="color: #d4af37;"><i class="bi bi-incognito me-2"></i>👑 Super Admin 專屬：最高權限客製化覆寫 (God Mode)</h6>
+                                    </div>
+                                    
+                                    <div class="mb-4 pb-3 border-bottom border-secondary border-opacity-50">
+                                        <label class="form-label fw-bold small text-light d-flex align-items-center">
+                                            <i class="bi bi-funnel-fill text-warning me-1"></i> Mode 2: 產業專屬導購字庫 (強迫推銷觸發詞)
+                                            <i class="bi bi-question-circle-fill ms-1 info-icon text-muted" tabindex="0" data-bs-toggle="popover" data-bs-content="只要客戶提到這些字，系統將無視 AI 判斷，直接強制切換至 PRODUCT 導購模式。"></i>
+                                        </label>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text bg-dark border-secondary text-warning fw-bold">關鍵字</span>
+                                            <input type="text" id="pb-super-keywords" class="form-control bg-dark text-light border-secondary font-monospace" placeholder="請用半形逗號分隔，例如: 茶,烏龍,禮盒,茶葉">
+                                        </div>
+                                        <div class="form-text text-secondary mt-1" style="font-size: 0.75rem;">⚠️ 請填寫該產業核心名詞。嚴禁填寫「請問、好的、我想」等泛用詞彙，以免引發系統大崩潰。</div>
+                                    </div>
+                                
+                                    <label class="form-label fw-bold small text-light d-flex align-items-center mb-2">
+                                        <i class="bi bi-terminal-fill text-warning me-1"></i> Mode 1: 系統底層行為覆寫 (If-Then Rules)
+                                    </label>
+                                    <p class="text-secondary small mb-2">此處的 Prompt 將疊加於系統指令最尾端，具備最高權限。請小心使用，勿破壞 JSON 輸出。</p>
+                                    <div class="mb-2 d-flex gap-2 flex-wrap">
+                                        <button type="button" class="btn btn-sm btn-outline-warning text-warning border-warning shadow-sm" style="font-size:0.75rem;" onclick="window.insertPromptTemplate('🚨【行銷標籤優先權 (Commercial Priority)】:\n- 符合條件商品 > 5 件時，強迫優先展示帶有「#熱銷」、「#主打」、「#推薦」標籤之商品。\n- 此類商品必須排在 [SHOW] 第一順位。')">
+                                            <i class="bi bi-currency-dollar me-1"></i>+ 熱銷霸榜 (商業優先)
+                                        </button>
+                                    
+                                        <button type="button" class="btn btn-sm btn-outline-danger text-danger border-danger shadow-sm" style="font-size:0.75rem;" onclick="window.insertPromptTemplate('[PRODUCT EXCLUSION RULE]: 搜尋時嚴格排除名稱包含「(展示)」字樣之項目。此類商品禁止主動推薦，僅限沉浸展示間內部調用。')">
+                                            <i class="bi bi-shield-lock-fill me-1"></i>+ 數據隔離 (隱藏展示品)
+                                        </button>
+                                    </div>
+                                    <textarea id="pb-custom-prompt" class="form-control bg-dark text-light border-secondary" rows="5" placeholder="輸入條件觸發 (If-Then) 或文字微調 (Styling) 規則..." oninput="window.updatePromptPreview()"></textarea>
+                                </div>
+
+                                <div class="prompt-block mb-3 p-3 bg-white rounded border border-primary bg-opacity-10">
+                                    <h6 class="fw-bold text-primary mb-3">3. 轉化引擎與安全鎖 (Engines & Safety)</h6>
+                                    <div class="mb-3 border-bottom pb-3">
+                                        <label class="form-label fw-bold small">🛡️ 安全邊界 (防護網)</label>
+                                        <div class="form-check form-switch mb-2">
+                                            <input class="form-check-input pb-rule-check" type="checkbox" id="rule-strict-qa" value="StrictQA" checked onchange="window.updatePromptPreview()">
+                                            <label class="form-check-label small d-flex align-items-center" for="rule-strict-qa">嚴格防幻覺模式 <i class="bi bi-question-circle-fill ms-1 info-icon" tabindex="0" data-bs-toggle="popover" data-bs-content="禁止 AI 瞎掰。不懂的問題直接轉交 [真人服務引擎]。"></i></label>
+                                        </div>
+                                        <div class="form-check form-switch mb-2">
+                                            <input class="form-check-input pb-rule-check" type="checkbox" id="rule-no-bargain" value="NoBargain" checked onchange="window.updatePromptPreview()">
+                                            <label class="form-check-label small d-flex align-items-center" for="rule-no-bargain">拒絕議價 (遇殺價轉真人) <i class="bi bi-question-circle-fill ms-1 info-icon" tabindex="0" data-bs-toggle="popover" data-bs-content="堅守底線。若遇大宗採購或殺價，委婉轉交 [真人服務引擎]。"></i></label>
+                                        </div>
+                                        <div class="form-check form-switch mb-2">
+                                            <input class="form-check-input pb-rule-check" type="checkbox" id="rule-no-medical" value="NoMedical" onchange="window.updatePromptPreview()">
+                                            <label class="form-check-label small d-flex align-items-center" for="rule-no-medical">🩺 禁止醫療診斷與處方 <i class="bi bi-question-circle-fill ms-1 info-icon" tabindex="0" data-bs-toggle="popover" data-bs-content="拒絕提供醫療建議或診斷。醫美/保健產業若需提供專業 QA 可不勾選。"></i></label>
+                                        </div>
+                                        <hr class="my-2 opacity-25">
+                                        <div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" id="rule-legal" checked disabled><label class="form-check-label small text-muted">🚨 平台合規守則 (防詐/黃賭毒) <i class="bi bi-lock-fill"></i></label></div>
+                                        <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="rule-neutral" checked disabled><label class="form-check-label small text-muted">⚖️ 政治與宗教中立 <i class="bi bi-lock-fill"></i></label></div>
+                                    </div>
+
+                                    <div class="mb-2">
+                                        <label class="form-label fw-bold small">🚀 商業轉化引擎 (武器庫)</label>
+                                        <div class="row g-2">
+                                            <div class="col-md-4">
+                                                <div class="form-check p-2 border rounded bg-white h-100">
+                                                    <input class="form-check-input pb-engine-check" type="checkbox" value="Sales" id="eng-sales" checked onchange="window.updatePromptPreview()">
+                                                    <label class="form-check-label fw-bold small text-success d-block" for="eng-sales">💰 主動銷售</label>
+                                                    <div class="text-muted" style="font-size: 0.7rem; line-height: 1.2;">捕捉購買意圖，展示商品卡。</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="form-check p-2 border rounded bg-white h-100">
+                                                    <input class="form-check-input pb-engine-check" type="checkbox" value="O2O" id="eng-o2o" checked onchange="window.updatePromptPreview()">
+                                                    <label class="form-check-label fw-bold small text-danger d-block" for="eng-o2o">📍 O2O 引流</label>
+                                                    <div class="text-muted" style="font-size: 0.7rem; line-height: 1.2;">導航實體店。</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="form-check p-2 border rounded bg-white h-100 position-relative">
+                                                    <input class="form-check-input pb-engine-check" type="checkbox" value="Service" id="eng-service" checked onchange="window.updatePromptPreview()">
+                                                    <label class="form-check-label fw-bold small text-primary d-block" for="eng-service">🤝 真人商機</label>
+                                                    <div class="text-muted" style="font-size: 0.7rem; line-height: 1.2;">安撫客訴或轉交大單。</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-4 pt-3 border-top border-info border-opacity-25">
+                                        <h6 class="fw-bold text-info mb-2"><i class="bi bi-magic me-1"></i>4. 沉浸展示間 (Virtual Showroom)</h6>
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <div class="form-check form-switch p-3 border rounded bg-white h-100 shadow-sm d-flex flex-column justify-content-center">
+                                                    <div class="d-flex align-items-center mb-1">
+                                                        <input class="form-check-input ms-0 me-2" type="checkbox" id="eng-showroom" style="transform: scale(1.3); cursor: pointer;" checked>
+                                                        <label class="form-check-label fw-bold text-dark" for="eng-showroom" style="cursor: pointer;">全店 AI 展示間總開關</label>
+                                                    </div>
+                                                    <div class="text-muted ms-1" style="font-size: 0.75rem; line-height: 1.4;">
+                                                        允許客人上傳照片進行虛擬試穿/場景合成。<br>
+                                                        <span class="text-danger fw-bold"><i class="bi bi-exclamation-triangle"></i> 單次耗點較高，單品設定請至商品庫。</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="form-check form-switch p-3 border rounded bg-white h-100 shadow-sm d-flex flex-column justify-content-center">
+                                                    <div class="d-flex align-items-center mb-1">
+                                                        <input class="form-check-input ms-0 me-2" type="checkbox" id="toggleRemoveWatermark" style="transform: scale(1.3); cursor: pointer;">
+                                                        <label class="form-check-label fw-bold text-dark" for="toggleRemoveWatermark" style="cursor: pointer;">
+                                                            尊榮去浮水印 <span class="badge bg-danger ms-1"><i class="bi bi-coin"></i> 算力 +5%</span>
+                                                        </label>
+                                                    </div>
+                                                    <div class="text-muted ms-1" style="font-size: 0.75rem; line-height: 1.4;">
+                                                        預設生成圖片會帶有官方浮水印。開啟此選項可提供最頂級的純淨品牌體驗。
+                                                    </div>
+                                                    <div class="text-danger fw-bold ms-1 mt-1" id="watermarkWarning" style="display: none; font-size: 0.75rem;">
+                                                        <i class="bi bi-check-circle-fill"></i> 已開啟，每次生成將額外收取 5% 費用。
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>           
+                                    <div class="mt-4 pt-3 border-top border-primary border-opacity-25">
+                                        <label class="form-label fw-bold small text-primary mb-2">🚀 戰情通報引擎 (VIP 加值服務)</label>
+                                        <div class="form-check form-switch p-3 border rounded bg-white shadow-sm d-flex align-items-center">
+                                            <input class="form-check-input ms-0 me-3" type="checkbox" id="eng-tg-summary" style="transform: scale(1.3); cursor: pointer;" onchange="window.toggleTgSummary(this)">
+                                            <div class="flex-grow-1">
+                                                <label class="form-check-label fw-bold mb-0" for="eng-tg-summary" style="cursor: pointer;">啟用 AI 商機推播與情報摘要</label>
+                                                <div class="text-muted" style="font-size: 0.8rem; margin-top: 2px;">啟用後，當客戶留下聯絡資訊，系統將自動為您總結需求並即時推播至您的 Telegram。</div>
+                                                <div class="text-danger fw-bold mt-1" style="font-size: 0.75rem;"><i class="bi bi-coin me-1"></i> 每次成功推播將額外扣除 250 點算力。</div>
+                                            </div>
+                                        </div>
+                                    </div>                                 
+                                </div>
+                                
+                                <div class="prompt-block mb-3 p-3 bg-white rounded border border-warning bg-opacity-10 shadow-sm">
+                                    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                                        <h6 class="fw-bold text-warning mb-0"><i class="bi bi-lightning-charge-fill me-1"></i>5. 快速回覆導購按鈕 (引流神器)</h6>
+                                        <span class="badge bg-light text-dark border shadow-sm" id="qr-count-badge">0 / 3</span>
+                                    </div>
+                                    <div id="quick-reply-container" class="mb-3">
+                                        <div class="text-center text-muted small py-3" id="qr-empty-state">尚未設定任何快速回覆按鈕</div>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-warning text-dark fw-bold w-100" onclick="window.addQuickReplyItem()">
+                                        <i class="bi bi-plus-circle me-1"></i> 新增自定義按鈕 (最多 3 組)
+                                    </button>
+                                </div>
+
+                                <div class="prompt-block mb-3 p-3 bg-white rounded border shadow-sm border-info" style="display:none;">
+                                    <h6 class="fw-bold small text-info mb-3"><i class="bi bi-funnel-fill"></i> 漏斗層級顯示名稱 (AI 導購對白設定)</h6>
+                                    <div class="row g-2">
+                                        <div class="col-md-4">
+                                            <label class="form-label small fw-bold">第一層 (對應大分類)</label>
+                                            <input type="text" id="funnel-layer1" class="form-control form-control-sm border-primary" placeholder="例: 產區 / 適用對象" onchange="window.updatePromptPreview()">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label small fw-bold">第二層 (對應小分類)</label>
+                                            <input type="text" id="funnel-layer2" class="form-control form-control-sm border-success" placeholder="例: 茶種 / 服飾款式" onchange="window.updatePromptPreview()">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label small fw-bold">第三層 (對應標籤)</label>
+                                            <input type="text" id="funnel-layer3" class="form-control form-control-sm border-warning" placeholder="例: 用途與風格" onchange="window.updatePromptPreview()">
+                                        </div>
+                                    </div>
+                                    <div class="form-text small mt-2 text-muted"><i class="bi bi-info-circle-fill"></i> AI 將使用上述詞彙引導顧客進行選單點擊。</div>
+                                </div>
+
+                                <div class="prompt-block mb-3 p-3 bg-white rounded border shadow-sm">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h6 class="fw-bold small text-muted mb-0">6. 語言能力 (Languages)</h6>
+                                        <span id="gle-cost-badge" class="badge bg-danger">Cost +0%</span>
+                                    </div>
+                                    <div class="row g-1">
+                                        <div class="col-6"><div class="form-check small"><input class="form-check-input gle-check" type="checkbox" value="zh-TW" checked disabled><label>🇹🇼 中文</label></div></div>
+                                        <div class="col-6"><div class="form-check small"><input class="form-check-input gle-check" type="checkbox" value="English" onchange="window.updatePromptPreview()"><label>🇺🇸 英文</label></div></div>
+                                        <div class="col-6"><div class="form-check small"><input class="form-check-input gle-check" type="checkbox" value="Japanese" onchange="window.updatePromptPreview()"><label>🇯🇵 日文</label></div></div>
+                                        <div class="col-4"><div class="form-check small"><input class="form-check-input gle-check" type="checkbox" value="Korean" onchange="window.updatePromptPreview()"><label>🇰🇷 韓文</label></div></div>
+                                        <div class="col-4"><div class="form-check small"><input class="form-check-input gle-check" type="checkbox" value="Vietnamese" onchange="window.updatePromptPreview()"><label>🇻🇳 越南文</label></div></div> 
+                                        <div class="col-6"><div class="form-check small"><input class="form-check-input gle-check" type="checkbox" value="Global" onchange="window.updatePromptPreview()"><label class="fw-bold text-primary">🌏 全球</label></div></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-footer bg-white text-end py-3">
+                                <button onclick="window.saveClientSettings()" class="btn btn-primary px-5 rounded-pill shadow-sm fw-bold">儲存並同步大腦</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="prompt-preview-col" class="col-lg-5 d-none">
+                        <div class="card h-100 shadow-sm border-0 bg-dark">
+                            <div class="card-header bg-dark text-white fw-bold border-secondary border-opacity-50"><i class="bi bi-code-square me-2 text-success"></i>大腦指令預覽 (Super Admin Only)</div>
+                            <div class="card-body p-0 d-flex flex-column"><textarea id="preview-prompt" class="form-control prompt-preview flex-grow-1 p-3" readonly></textarea></div>
+                        </div>
+                    </div>
+                </div>
+            </div> <div class="tab-pane fade" id="tab-o2o" role="tabpanel" aria-labelledby="o2o-tab">
+                <div class="row justify-content-center">
+                    <div class="col-lg-8">
+                        <div class="card shadow-sm border-0">
+                            <div class="card-header bg-white py-3"><h6 class="mb-0 fw-bold text-danger"><i class="bi bi-geo-alt-fill me-2"></i>實體門市管理 (O2O Engine)</h6></div>
+                            <div class="card-body p-4">
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold">1. 搜尋 Google 地標</label>
+                                    <div class="input-group">
+                                        <input type="text" id="store-search-input" class="form-control" placeholder="輸入店名...">
+                                        <button class="btn btn-outline-primary" type="button" onclick="window.addStoreItem()"><i class="bi bi-plus-lg"></i> 加入列表</button>
+                                    </div>
+                                    <input type="hidden" id="store-name"><input type="hidden" id="store-display-addr"><input type="hidden" id="store-map-link">
+                                </div>
+                                <div>
+                                    <label class="form-label fw-bold">2. 已設定分店</label>
+                                    <div id="store-list-container" class="list-group shadow-sm border" style="max-height: 300px; overflow-y: auto; min-height: 100px;"></div>
+                                </div>
+                                <div class="mt-4 text-end"><button onclick="window.saveClientSettings()" class="btn btn-primary px-4 fw-bold">儲存設定</button></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div> <div class="tab-pane fade" id="tab-products" role="tabpanel" aria-labelledby="products-tab">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white py-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0 fw-bold">商品管理</h6>
+                            <div>
+                                <button onclick="window.openCategoryModal()" class="btn btn-warning btn-sm me-1 fw-bold"><i class="bi bi-diagram-3 text-dark"></i> 分類管理</button>
+                                <button onclick="window.openProductModal()" class="btn btn-success btn-sm me-1"><i class="bi bi-plus-lg"></i> 新增</button>
+                                <button onclick="window.loadProducts()" class="btn btn-light btn-sm border"><i class="bi bi-arrow-clockwise"></i> 刷新</button>
+                            </div>
+                        </div>
+                        <div class="input-group input-group-sm mt-2">
+                            <span class="input-group-text bg-light fw-bold">篩選</span>
+                            <select id="prod-filter-main-cat" class="form-select border-start-0" style="max-width: 130px;" onchange="window.filterProductsList()">
+                                <option value="all">所有分類</option>
+                            </select>
+                            <select id="prod-status-filter" class="form-select border-start-0 border-end-0" style="max-width: 100px;" onchange="window.filterProductsList()">
+                                <option value="all">全狀態</option>
+                                <option value="active">🟢 上架中</option>
+                                <option value="inactive">🔴 已下架</option>
+                            </select>
+                            <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                            <input type="text" id="prod-search-filter" class="form-control border-start-0 ps-0" placeholder="輸入關鍵字或標籤，即時過濾商品..." oninput="window.filterProductsList()">
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="loader-products" class="loading-overlay"><div class="spinner-border text-primary"></div></div>
+                        <div id="product-list" class="list-group list-group-flush"></div>
+                    </div>
+                </div>
+            </div> <div class="tab-pane fade" id="tab-qa" role="tabpanel" aria-labelledby="qa-tab">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white py-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0 fw-bold">QA 知識庫</h6>
+                            <div>
+                                <button onclick="window.openQAModal()" class="btn btn-primary btn-sm me-1"><i class="bi bi-plus-lg"></i> 新增</button>
+                                <button onclick="window.loadQA()" class="btn btn-light btn-sm border"><i class="bi bi-arrow-clockwise"></i> 刷新</button>
+                            </div>
+                        </div>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                            <input type="text" id="qa-search-filter" class="form-control border-start-0 ps-0" placeholder="輸入問題或答案關鍵字，即時過濾 QA..." oninput="window.filterQAList(this.value)">
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="qa-list" class="list-group list-group-flush"></div>
+                    </div>
+                </div>
+            </div> <div class="tab-pane fade" id="tab-leads" role="tabpanel" aria-labelledby="leads-tab">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                        <h6 class="mb-0 fw-bold">商機雷達 (高潛力名單)</h6>
+                        <div class="d-flex gap-2">
+                            <select id="filter-lead-status" class="form-select form-select-sm" style="width: auto;" onchange="window.loadLeads()">
+                                <option value="new" selected>🟢 未處理</option>
+                                <option value="processing">🟡 處理中</option>
+                                <option value="done">🔵 已處理</option>
+                                <option value="all">📂 全部</option>
+                            </select>
+                            <button onclick="window.loadLeads()" class="btn btn-sm btn-light border">刷新</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="loader-leads" class="loading-overlay"><div class="spinner-border text-primary"></div></div>
+                        <div id="lead-list" class="row g-3"></div>
+                    </div>
+                </div>
+            </div> <div class="tab-pane fade" id="tab-members" role="tabpanel" aria-labelledby="members-tab">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                        <h6 class="mb-0 fw-bold">客戶關係管理 (CRM)</h6>
+                        <button onclick="window.loadMembers()" class="btn btn-sm btn-light border">刷新</button>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="loader-members" class="loading-overlay"><div class="spinner-border text-primary"></div></div>
+                        <div id="member-list" class="list-group list-group-flush"></div>
+                    </div>
+                </div>
+            </div> <div class="tab-pane fade" id="tab-logs" role="tabpanel" aria-labelledby="logs-tab">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white py-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0 fw-bold">系統操作與服務軌跡</h6>
+                            <span class="badge bg-light text-secondary" id="log-count-badge">共 0 筆</span>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2 align-items-center justify-content-end">
+                            <div class="input-group input-group-sm" style="width: auto;">
+                                <span class="input-group-text bg-light">📅</span>
+                                <input type="datetime-local" id="log-date-start" class="form-control" style="max-width: 180px;">
+                                <span class="input-group-text bg-white">-</span>
+                                <input type="datetime-local" id="log-date-end" class="form-control" style="max-width: 180px;">
+                            </div>
+                            <select id="log-filter-type" class="form-select form-select-sm" style="width:160px">
+                                <option value="all">📂 全部類型</option>
+                                <option value="SYSTEM_AI">🤖 AI 智能回覆</option>
+                                <option value="ADMIN_OP">👮 Admin 管理操作</option>
+                                <option value="BILLING">💰 金流紀錄</option>
+                            </select>
+                            <button onclick="window.loadAuditLogs(true)" class="btn btn-primary btn-sm px-3"><i class="bi bi-search me-1"></i> 查詢</button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="bg-light">
+                                    <tr><th>時間</th><th>服務類型</th><th class="text-end">點數</th><th>摘要</th><th>詳情</th></tr>
+                                </thead>
+                                <tbody id="log-list-container"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div> <div class="tab-pane fade" id="tab-integration" role="tabpanel" aria-labelledby="integration-tab">
+                <div class="row justify-content-center">
+                    <div class="col-lg-8">
+                        <div class="card shadow-sm border-0 mb-4">
+                            <div class="card-header bg-dark text-white py-3 d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0 fw-bold"><i class="bi bi-robot me-2 text-success"></i>LINE 通道綁定設定</h6>
+                                <span class="badge bg-secondary" id="integration-role-badge">狀態讀取中...</span>
+                            </div>
+                            <div class="card-body p-4 bg-light">
+                                
+                                <div id="integration-admin-view" style="display:none;">
+                                    <div class="alert alert-info small mb-4">
+                                        <i class="bi bi-info-circle-fill me-1"></i> 
+                                        <b>SaaS 專案識別碼 (Client ID)</b>：<code id="integration-docid" class="user-select-all fw-bold">...</code>
+                                    </div>
+                                    <div class="mb-4">
+                                        <label class="form-label fw-bold small">1. Webhook URL (請貼至 LINE Developers)</label>
+                                        <div class="input-group">
+                                            <input type="text" id="integration-webhook" class="form-control font-monospace bg-white" readonly>
+                                            <button class="btn btn-outline-primary" onclick="navigator.clipboard.writeText(document.getElementById('integration-webhook').value); Swal.fire({title:'已複製', icon:'success', timer:1000, showConfirmButton:false});"><i class="bi bi-clipboard"></i> 複製</button>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold small">2. Channel Access Token</label>
+                                        <input type="text" id="integration-token" class="form-control font-monospace integration-input" placeholder="請輸入 Token">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold small">3. Channel Secret</label>
+                                        <input type="text" id="integration-secret" class="form-control font-monospace integration-input" placeholder="請輸入 Secret">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold small">4. Gemini API Key (AI 腦神經)</label>
+                                        <input type="text" id="integration-geminikey" class="form-control font-monospace integration-input" placeholder="AIzaSy...">
+                                    </div>
+                                    <div class="mb-4">
+                                        <label class="form-label fw-bold small">5. LINE Bot ID (對話後自動抓取，或手動綁定)</label>
+                                        <input type="text" id="integration-botid" class="form-control font-monospace integration-input" placeholder="自動抓取或填寫 U 開頭的 33 碼">
+                                    </div>
+                                    
+                                    <div class="mb-4 pt-3 border-top">
+                                        <label class="form-label fw-bold small text-primary"><i class="bi bi-telegram me-1"></i>6. Telegram Chat ID (商機推播接收端)</label>
+                                        <input type="text" id="integration-tgid" class="form-control font-monospace integration-input border-primary border-opacity-50" placeholder="例如: 123456789">
+                                        <div class="small text-muted mt-1">
+                                            <i class="bi bi-info-circle me-1"></i> 請客戶點擊 <a href="https://t.me/userinfobot" target="_blank">@userinfobot</a> 取得 ID，並提醒他們必須先對機器人按 Start。
+                                        </div>
+                                    </div>
+
+                                    <div class="text-end">
+                                        <button onclick="window.saveIntegrationSettings()" class="btn btn-success px-5 fw-bold"><i class="bi bi-save me-1"></i>儲存金鑰</button>
+                                    </div>
+                                </div>
+
+                                <div id="integration-user-view" style="display:none;" class="text-center py-5">
+                                    <div id="integration-status-success" style="display:none;">
+                                        <i class="bi bi-check-circle-fill text-success" style="font-size: 4rem;"></i>
+                                        <h4 class="fw-bold mt-3 text-dark">LINE 官方帳號已成功對接！</h4>
+                                        <p class="text-muted mt-2 mb-0" style="line-height: 1.6;">
+                                            您的 AI 智慧客服已上線運作。<br>
+                                            本通道由系統服務商負責最高級別的安全維護，您無需進行任何額外設定。
+                                        </p>
+                                    </div>
+                                    <div id="integration-status-error" style="display:none;">
+                                        <i class="bi bi-exclamation-triangle-fill text-danger" style="font-size: 4rem;"></i>
+                                        <h4 class="fw-bold mt-3 text-dark">系統通道尚未開通</h4>
+                                        <p class="text-muted mt-2 mb-0" style="line-height: 1.6;">
+                                            目前系統工程師正在為您進行白手套對接設定。<br>
+                                            請稍候，設定完成後此處將自動顯示安全連線狀態。
+                                        </p>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div> </div> </div> </div> 
+        
+<div class="modal fade" id="memberModal" tabindex="-1">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light border-0"><h5 class="modal-title fw-bold">會員備註編輯</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="member-id">
+                <div class="mb-3"><label class="small text-muted">暱稱</label><input type="text" id="member-nick" class="form-control" readonly></div>
+                <div class="mb-3"><label class="small text-muted">等級</label><select id="member-tier" class="form-select"><option value="Normal">Normal</option><option value="VIP">VIP</option><option value="Blacklist">Blacklist</option></select></div>
+                <div class="mb-3"><label class="small text-muted">備註</label><textarea id="member-note" class="form-control" rows="3"></textarea></div>
+                <div class="form-check form-switch mt-3 p-3 border rounded bg-light">
+                    <input class="form-check-input fs-4" type="checkbox" id="member-manual-mode">
+                    <label class="form-check-label fw-bold text-danger ms-2 mt-1" for="member-manual-mode"><i class="bi bi-robot"></i> 暫停 AI 回覆 (手動接管)</label>
+                    <div class="form-text small text-muted ms-2 mt-2" style="line-height: 1.4;">開啟後系統將不再對此客戶自動回覆，請店長手動於 LINE 官方帳號回覆。</div>
+                </div>
+            </div>
+            <div class="modal-footer border-0"><button type="button" class="btn btn-primary w-100" onclick="window.saveMember()">更新資料</button></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="qaModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light border-0"><h5 class="modal-title fw-bold">QA 知識編輯</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="qa-id">
+                <div class="mb-3"><label class="fw-bold small">問題內容 (限30字)</label><input type="text" id="qa-question" class="form-control" maxlength="30"></div>
+                <div class="mb-2"><label class="fw-bold small">回答內容 (限250字)</label><textarea id="qa-answer" class="form-control" rows="4" maxlength="250"></textarea></div>
+            </div>
+            <div class="modal-footer border-0"><button type="button" class="btn btn-outline-danger me-auto" onclick="window.deleteQA()" id="btn-qa-del">刪除</button><button type="button" class="btn btn-primary px-4" onclick="window.saveQA()">儲存</button></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="productModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light border-0"><h5 class="modal-title fw-bold">商品資料維護</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="prod-id">
+                <div class="mb-2"><label class="small fw-bold">商品名稱</label><input type="text" id="prod-name" class="form-control"></div>
+                
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <label class="small fw-bold text-primary">大分類 (必填)</label>
+                        <select id="prod-main-cat" class="form-select border-primary" onchange="window.onProductMainCatChange()"></select>
+                    </div>
+                    <div class="col-6">
+                        <label class="small fw-bold text-success">小分類 (選填)</label>
+                        <select id="prod-sub-cat" class="form-select border-success"><option value="">無</option></select>
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-2"><div class="col-6"><label class="small fw-bold">價格</label><input type="number" id="prod-price" class="form-control"></div><div class="col-6"><label class="small fw-bold">上架狀態</label><select id="prod-listing" class="form-select"><option value="true">🟢 上架中</option><option value="false">🔴 已下架</option></select></div></div>
+                <div class="mb-2"><label class="small fw-bold">圖片 URL</label><input type="text" id="prod-img" class="form-control"></div>
+                <div class="mb-2"><label class="small fw-bold">導購 URL</label><input type="text" id="prod-url" class="form-control"></div>
+                <div class="mb-2"><label class="small fw-bold">描述</label><textarea id="prod-desc" class="form-control" rows="2"></textarea></div>
+                <div class="mb-2">
+                    <label class="form-label small fw-bold">關鍵字標籤</label>
+                    <div id="tag-container" class="border rounded p-2 d-flex flex-wrap gap-2 bg-light align-items-center" style="min-height: 42px;"><input type="text" id="tag-input" class="border-0 bg-transparent flex-grow-1" placeholder="輸入後按 Enter..." style="outline: none; min-width: 120px; font-size: 0.9rem;"></div>
+                </div>
+                <div class="form-check form-switch mt-3 p-3 bg-primary-subtle border border-primary-subtle rounded">
+                    <input class="form-check-input ms-0 me-2" type="checkbox" id="prod-enable-vto" checked style="transform: scale(1.2);">
+                    <label class="form-check-label fw-bold text-primary" for="prod-enable-vto">✨ 啟用 AI 沉浸展示間</label>
+                    <div class="form-text small mt-1">開啟後，客人在 LINE 中方可使用 AI 虛擬展示功能。若為低單價或不需展示之商品，建議關閉以節省算力點數。</div>
+                </div>
+            </div>
+            <div class="modal-footer border-0"><button type="button" class="btn btn-outline-danger me-auto" onclick="window.deleteProduct()" id="btn-prod-del">刪除</button><button type="button" class="btn btn-primary px-4" onclick="window.saveProduct()">儲存</button></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="categoryModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-warning border-0">
+                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-diagram-3 me-2"></i>商品分類管理</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body bg-light p-3">
+                <div class="alert alert-warning small py-2 mb-3 border-warning border-opacity-50">
+                    <i class="bi bi-info-circle-fill me-1"></i> 
+                    <b>UI 限制防呆：</b>為保留系統按鈕空間，大分類最多 <b>9</b> 組，每個大分類下的小分類最多 <b>9</b> 組。
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="card shadow-sm h-100 border-primary border-opacity-25">
+                            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-2">
+                                <span class="fw-bold small">第一層：大分類</span>
+                                <button class="btn btn-sm btn-light py-0 text-primary fw-bold" onclick="window.addMainCategory()"><i class="bi bi-plus-lg"></i> 新增</button>
+                            </div>
+                            <div class="card-body p-0">
+                                <div id="main-cat-list" class="list-group list-group-flush" style="max-height: 350px; overflow-y: auto; min-height: 150px;">
+                                    </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card shadow-sm h-100 border-success border-opacity-25">
+                            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center py-2">
+                                <span class="fw-bold small">第二層：小分類</span>
+                                <button class="btn btn-sm btn-light py-0 text-success fw-bold" onclick="window.addSubCategory()"><i class="bi bi-plus-lg"></i> 新增</button>
+                            </div>
+                            <div class="card-body p-0">
+                                <div id="sub-cat-list" class="list-group list-group-flush" style="max-height: 350px; overflow-y: auto; min-height: 150px;">
+                                    <div class="text-center p-4 text-muted small"><i class="bi bi-hand-index me-1"></i> 請先選擇左側大分類</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 bg-light">
+                <button type="button" class="btn btn-secondary w-100 fw-bold" data-bs-dismiss="modal">關閉並返回商品庫</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="logDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-dark text-white border-0"><h5 class="modal-title fw-bold">服務執行明細</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body p-0">
+                <div id="log-user-view" style="display:none;">
+                    <table class="table table-bordered mb-0 small">
+                        <tbody>
+                            <tr><th class="bg-light text-end" width="25%">執行時間</th><td id="lu-time" class="font-monospace"></td></tr>
+                            <tr><th class="bg-light text-end">服務類型</th><td id="lu-type"></td></tr>
+                            <tr><th class="bg-light text-end">使用者行為</th><td id="lu-query" class="text-primary fw-bold"></td></tr>
+                            <tr><th class="bg-light text-end">扣除點數</th><td id="lu-pts" class="text-danger fw-bold"></td></tr>
+                            <tr><th class="bg-light text-end">系統狀態</th><td class="text-success"><i class="bi bi-check-circle-fill"></i> 執行完成</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="log-admin-view" style="display:none;"><div class="p-2 bg-warning text-dark small fw-bold text-center"><i class="bi bi-shield-lock-fill"></i> Super Admin 模式 (包含底層成本機密)</div><div id="log-content" class="log-json m-0 rounded-0" style="min-height: 200px;">...</div></div>
+            </div>
+            <div class="modal-footer border-0"><button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">關閉視窗</button></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="applicationsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-warning border-0"><h5 class="modal-title fw-bold text-dark"><i class="bi bi-card-checklist me-2"></i>待審核的白手套建置單</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body p-0 bg-light">
+                <div id="loader-applications" class="text-center py-5" style="display:none;"><div class="spinner-border text-primary"></div></div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 bg-white">
+                        <thead class="table-light"><tr><th>申請時間</th><th>品牌 / 姓名</th><th>聯絡電話</th><th>登入 Email</th><th>申辦項目 / 狀態</th><th class="text-end">操作</th></tr></thead>
+                        <tbody id="application-list-container"></tbody>
+                    </table>
+                </div>
+                <div id="app-empty-state" class="text-center text-muted py-5" style="display:none;"><i class="bi bi-inbox text-secondary" style="font-size: 3rem;"></i><p class="mt-2 fw-bold">目前沒有待處理的申請單</p></div>
+            </div>
+            <div class="modal-footer border-0 bg-light"><div class="small text-danger fw-bold me-auto"><i class="bi bi-exclamation-triangle-fill"></i> 操作前請務必確認綠界款項已入帳。</div><button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">關閉</button></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="suspensionModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-danger text-white border-0"><h5 class="modal-title fw-bold"><i class="bi bi-exclamation-octagon-fill me-2"></i>強制停權處置單</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body bg-light">
+                <div class="alert alert-warning small py-2 mb-3"><i class="bi bi-info-circle-fill me-1"></i> 執行停權後，該客戶的 AI 服務將被物理斷路。請務必上傳相關違規證據以供後續稽核。</div>
+                <div class="mb-3"><label class="form-label fw-bold small text-dark">違規原因</label><select id="suspend-reason" class="form-select form-select-sm"><option value="違反 AUP 政策 (詐騙/黃賭毒)">🚨 違反 AUP 政策 (詐騙/黃賭毒)</option><option value="欠款未繳 / 惡意退款">💳 欠款未繳 / 惡意退款</option><option value="惡意消耗系統算力">🤖 惡意消耗系統算力</option><option value="其他重大違規">📝 其他重大違規</option></select></div>
+                <div class="mb-3"><label class="form-label fw-bold small text-dark">處置備註 (選填)</label><textarea id="suspend-memo" class="form-control form-control-sm" rows="2" placeholder="簡述違規情節或對話內容..."></textarea></div>
+                <div class="mb-3"><label class="form-label fw-bold small text-dark">上傳存證截圖 (必填)</label><input type="file" class="form-control form-control-sm" id="suspend-evidence-file" accept="image/*" onchange="window.previewEvidenceImage(event)"><div id="suspend-preview-container" class="mt-2 text-center" style="display:none;"><img id="suspend-preview-img" src="" alt="預覽圖" class="img-thumbnail shadow-sm" style="max-height: 180px; object-fit: contain;"></div></div>
+            </div>
+            <div class="modal-footer border-0"><button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">取消</button><button type="button" class="btn btn-danger btn-sm fw-bold px-4" id="btn-confirm-suspend" onclick="window.executeSuspension()"><i class="bi bi-hammer me-1"></i> 確認封鎖並上傳存證</button></div>
+        </div>
+    </div>
+</div>
+
+<div id="admin-billing-controls" style="display:none;"><input type="text" id="input-apikey"><input type="text" id="input-token"><input type="text" id="input-secret"></div>
+
+<div id="legal-modals-container"></div>
+
+<script>
+    // 使用絕對路徑從根目錄抓取，確保 SaaS 後台不會抓錯位置
+    document.addEventListener("DOMContentLoaded", function() { 
+        fetch('/legal-modals.html')
+            .then(response => {
+                if (!response.ok) throw new Error("法務文件載入失敗");
+                return response.text();
+            })
+            .then(htmlData => {
+                document.getElementById('legal-modals-container').innerHTML = htmlData;
+            })
+            .catch(err => console.error("[SaaS Admin] 法務文件載入異常:", err));
+    });
+
+    // 統一由這裡控制 Modal 開關
+    function openModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if(modal) {
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden'; 
+        }
+    }
+    function closeModal(event, modalId) {
+        if (event === 'force' || event.target.id === modalId) {
+            document.getElementById(modalId).classList.remove('active');
+            document.body.style.overflow = 'auto'; 
+        }
+    }
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDkKFo6c6K92LiSTSSlqnmgtPMMFECIT7Q&libraries=places&loading=async"></script>
+<script type="module" src="./js/app.js?v=23.3"></script>
+</body>
+</html>

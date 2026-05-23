@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>品智 AI - 代理商合作夥伴中心</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+
+    <style>
+        body { background-color: #f4f6f9; font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; }
+        .view-section { display: none; }
+        .active-section { display: block; animation: fadeIn 0.4s; }
+        .partner-card { border: none; border-radius: 12px; transition: transform 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .bg-partner-dark { background-color: #1a2538; } /* 專屬深藍色 */
+        .text-gold { color: #d4af37; } /* 財富金 */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        /* 表格微調 */
+        .table thead th { border-top: none; color: #6c757d; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-partner-dark mb-4 shadow">
+    <div class="container">
+        <a class="navbar-brand fw-bold" href="#"><i class="bi bi-briefcase-fill text-gold me-2"></i>品智 AI 合作夥伴中心</a>
+        <div class="d-flex align-items-center">
+            <span id="user-display" class="text-light me-3 small opacity-75"></span>
+            <button onclick="window.handlePartnerLogout()" id="btn-logout" class="btn btn-outline-light btn-sm" style="display:none">登出</button>
+        </div>
+    </div>
+</nav>
+
+<div class="container pb-5">
+    <div id="login-view" class="view-section active-section text-center mt-5">
+        <div class="card partner-card mx-auto p-5" style="max-width: 400px;">
+            <i class="bi bi-shield-lock text-primary mb-3" style="font-size: 3rem;"></i>
+            <h4 class="fw-bold mb-1">經銷商登入</h4>
+            <p class="text-muted small mb-4">請使用您綁定的企業信箱登入</p>
+            <button onclick="window.handlePartnerLogin()" class="btn btn-primary w-100 rounded-pill py-2 fw-bold shadow-sm">
+                <i class="bi bi-google me-2"></i> 授權登入
+            </button>
+        </div>
+    </div>
+
+    <div id="dashboard-view" class="view-section">
+        <div class="d-flex justify-content-between align-items-end mb-4">
+            <div>
+                <h3 class="fw-bold mb-0">早安，<span id="partner-name" class="text-primary">載入中...</span></h3>
+                <p class="text-muted mb-0 mt-1">這裡是您的專屬業務控制台</p>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card partner-card h-100 bg-partner-dark text-white overflow-hidden position-relative">
+                    <div class="card-body p-4">
+                        <h6 class="text-white-50 fw-bold mb-2"><i class="bi bi-database-fill me-2"></i>可撥發點數餘額 (大水庫)</h6>
+                        <h1 class="display-4 fw-bold text-gold mb-0" id="partner-balance">0</h1>
+                        <p class="small text-white-50 mt-2 mb-0">請留意點數水位，若不足請洽品智 AI 總部儲值。</p>
+                    </div>
+                    <i class="bi bi-coin position-absolute text-white opacity-10" style="font-size: 8rem; right: -10px; bottom: -20px;"></i>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card partner-card h-100 p-4 border-top border-primary border-4">
+                    <h6 class="text-muted fw-bold mb-3"><i class="bi bi-link-45deg me-2"></i>我的專屬推廣連結</h6>
+                    <p class="small text-secondary mb-3">請將此連結發送給您的客戶。客戶透過此連結註冊後，將自動歸戶至您的名下。</p>
+                    <div class="input-group mb-3">
+                        <input type="text" id="referral-link" class="form-control bg-light" readonly value="載入中...">
+                        <button class="btn btn-primary fw-bold px-4" onclick="window.copyReferralLink()">
+                            <i class="bi bi-clipboard"></i> 複製
+                        </button>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge bg-success bg-opacity-10 text-success border border-success"><i class="bi bi-check-circle-fill me-1"></i> 自動歸戶系統運作中</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card partner-card mt-4 p-4 shadow-sm">
+            <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3">
+                <h5 class="fw-bold mb-0"><i class="bi bi-people-fill text-primary me-2"></i>我名下的客戶名單</h5>
+                <button class="btn btn-sm btn-outline-primary fw-bold px-3" onclick="window.loadMyClients()">
+                    <i class="bi bi-arrow-clockwise me-1"></i> 重新整理名單
+                </button>
+            </div>
+            
+            <div id="partner-client-list">
+                <div class="text-center py-5 text-muted">
+                    <div class="spinner-border text-primary mb-3" role="status"></div>
+                    <p>正在同步客戶名單與餘額...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card partner-card mt-4 p-4 shadow-sm border-top border-warning border-4">
+            <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-4">
+                <h5 class="fw-bold mb-0"><i class="bi bi-cash-coin text-warning me-2"></i>我的推廣獎金 (原廠代收分潤)</h5>
+                <span class="badge bg-warning text-dark px-3 py-2 rounded-pill shadow-sm">
+                    <i class="bi bi-star-fill"></i> 分潤比例：<span id="partner-commission-rate" class="fw-bold fs-6">--</span> %
+                </span>
+            </div>
+
+            <div class="row g-4 mb-4">
+                <div class="col-md-6">
+                    <div class="p-3 bg-light rounded-3 border border-warning border-opacity-50 shadow-sm">
+                        <p class="text-muted small mb-1 fw-bold">本期待結算獎金 (Pending)</p>
+                        <h2 class="fw-bold text-dark mb-0">NT$ <span id="pending-commission">0</span></h2>
+                        <small class="text-muted">等待總部結清與匯款</small>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="p-3 bg-light rounded-3 shadow-sm">
+                        <p class="text-muted small mb-1 fw-bold">歷史已發放總額 (Paid)</p>
+                        <h2 class="fw-bold text-success mb-0">NT$ <span id="paid-commission">0</span></h2>
+                        <small class="text-muted">已匯入您的指定銀行帳戶</small>
+                    </div>
+                </div>
+            </div>
+
+            <div id="commission-list-container">
+                <div class="text-center py-4 text-muted small">
+                    <div class="spinner-border spinner-border-sm text-warning mb-2" role="status"></div><br>
+                    載入分潤明細中...
+                </div>
+            </div>
+        </div>
+
+
+        
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script type="module" src="./js/partner-app.js?v=2"></script>
+</body>
+</html>

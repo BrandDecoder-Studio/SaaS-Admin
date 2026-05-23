@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 智能服務申請 | Brand Decoder</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --brand-gold: #ffc107; 
+            --brand-dark: #1a2538; 
+            --brand-light: #f8f9fa;
+        }
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: var(--brand-dark);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 20px;
+        }
+        .apply-card {
+            background: white;
+            color: #333;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 450px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .brand-header {
+            background-color: var(--brand-gold); 
+            padding: 30px;
+            text-align: center;
+        }
+        .btn-google {
+            background-color: white;
+            border: 1px solid #dadce0;
+            color: #3c4043;
+            font-weight: 500;
+            transition: background-color .2s, box-shadow .2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn-google:hover {
+            background-color: #f8f9fa;
+            border-color: #d2e3fc;
+            box-shadow: 0 1px 2px 0 rgba(60,64,67,0.30), 0 1px 3px 1px rgba(60,64,67,0.15);
+        }
+        .btn-submit {
+            background-color: var(--brand-dark);
+            color: var(--brand-gold);
+            font-weight: bold;
+            padding: 12px;
+            border: none;
+            width: 100%;
+            transition: 0.3s;
+        }
+        .btn-submit:hover {
+            background-color: #2a3a5a;
+            color: white;
+        }
+        .agent-badge {
+            background-color: #fff8e1;
+            color: #856404;
+            border: 1px solid #ffeeba;
+            font-size: 0.9rem;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        #loading-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(26, 37, 56, 0.9);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 1000; display: none;
+        }
+        /* 避免圖片撐破容器 */
+        .google-icon {
+            width: 18px;
+            height: 18px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loading-overlay">
+        <div class="spinner-border text-warning mb-3" role="status"></div>
+        <div class="text-white small">正在驗證推薦身分...</div>
+    </div>
+
+    <div class="apply-card">
+        <div class="brand-header">
+            <h4 class="fw-bold mb-0 text-dark">AI 智能服務申請</h4>
+            <p class="small text-dark mb-0 opacity-75">快速部署您的專屬 AI 大腦</p>
+        </div>
+
+        <div class="p-4">
+            <div id="login-section">
+                <p class="text-center text-muted mb-4 small">為了確保您的專案安全，請先驗證您的 Google 帳號以開始申請。</p>
+                <button onclick="handleApplyLogin()" class="btn btn-google w-100 py-3 mb-3">
+                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="google-icon">
+                    使用 Google 帳號登入
+                </button>
+            </div>
+
+            <div id="apply-section" style="display: none;">
+                <div id="agent-info-display" class="agent-badge mb-4 text-center">
+                    <i class="bi bi-patch-check-fill me-1 text-warning"></i> 您正使用 <strong id="display-agent-name">合作夥伴</strong> 提供的推薦方案
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">管理員 Email (唯讀)</label>
+                    <input type="text" id="user-email" class="form-control bg-light" readonly>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label small fw-bold">您的品牌/專案名稱</label>
+                    <input type="text" id="project-name" class="form-control" placeholder="例如：大叔的算命頻道">
+                </div>
+
+                <button onclick="submitApplication()" class="btn btn-submit rounded-3 py-3">
+                    送出申請並等待開通
+                </button>
+            </div>
+        </div>
+        
+        <div class="bg-light p-3 text-center border-top">
+            <small class="text-muted">© 2026 Brand Decoder AI - 企業專屬算力平台</small>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script type="module">
+        import { signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+        import { collection, query, where, getDoc, getDocs, doc, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+        import { auth, googleProvider, db } from "./js/config.js";
+
+        window.tempAgentId = null;
+
+        const urlParams = new URLSearchParams(window.location.search);
+        window.tempAgentId = urlParams.get('agent') || urlParams.get('agent_id');
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                await verifyAndShowForm(user);
+            } else {
+                document.getElementById('login-section').style.display = 'block';
+                document.getElementById('apply-section').style.display = 'none';
+            }
+        });
+
+        async function verifyAndShowForm(user) {
+            const overlay = document.getElementById('loading-overlay');
+            overlay.style.display = 'flex';
+
+            try {
+                if (!window.tempAgentId) {
+                    throw new Error("無效的推廣連結，即將返回官網...");
+                }
+
+                const agentRef = doc(db, "distributors", window.tempAgentId);
+                const agentSnap = await getDoc(agentRef);
+
+                if (!agentSnap.exists()) {
+                    throw new Error("查無此推薦代理商身分，請洽詢您的推薦人。");
+                }
+
+                const agentData = agentSnap.data();
+                document.getElementById('display-agent-name').innerText = agentData.name || "合作夥伴";
+                document.getElementById('user-email').value = user.email;
+                document.getElementById('login-section').style.display = 'none';
+                document.getElementById('apply-section').style.display = 'block';
+
+            } catch (error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: '驗證失敗',
+                    text: error.message,
+                    confirmButtonColor: '#1a2538'
+                }).then(() => {
+                    window.location.replace("https://branddecoderai.com/");
+                });
+            } finally {
+                overlay.style.display = 'none';
+            }
+        }
+
+        window.handleApplyLogin = async () => {
+            try {
+                await signInWithPopup(auth, googleProvider);
+            } catch (e) {
+                Swal.fire('登入失敗', e.message, 'error');
+            }
+        };
+
+        window.submitApplication = async () => {
+            const name = document.getElementById('project-name').value.trim();
+            if (!name) return Swal.fire('請填寫', '請輸入您的品牌或專案名稱', 'warning');
+
+            try {
+                Swal.fire({ title: '申請遞交中...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+                await addDoc(collection(db, "applications"), {
+                    name: name,
+                    email: auth.currentUser.email,
+                    agent_id: window.tempAgentId,
+                    submitAt: serverTimestamp(),
+                    status: 'pending',
+                    serviceType: 'AI 服務開通 (經銷商推薦)'
+                });
+
+                await Swal.fire({
+                    icon: 'success',
+                    title: '申請成功',
+                    text: '您的申請已送出！請靜候總部開通通知，後續將由代理商專人聯繫您。',
+                    confirmButtonColor: '#1a2538'
+                });
+
+                window.location.replace("https://branddecoderai.com/");
+
+            } catch (e) {
+                Swal.fire('系統錯誤', e.message, 'error');
+            }
+        };
+    </script>
+</body>
+</html>
