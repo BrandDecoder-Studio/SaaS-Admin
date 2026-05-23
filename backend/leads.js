@@ -152,7 +152,12 @@ async function getLeadQuickReply(clientData, memberData, hasShownProducts) {
     if (customReplies.length > 0) {
         customReplies.slice(0, 3).forEach(qr => { // 👈 這裡改成 3
             if (qr.label && qr.text) {
-                items.push({ "type": "action", "action": { "type": "message", "label": qr.label.substring(0, 20), "text": qr.text } });
+                const actionText = qr.text.trim();
+                if (actionText.startsWith('http://') || actionText.startsWith('https://') || actionText.startsWith('tel:') || actionText.startsWith('line://')) {
+                    items.push({ "type": "action", "action": { "type": "uri", "label": qr.label.substring(0, 20), "uri": actionText } });
+                } else {
+                    items.push({ "type": "action", "action": { "type": "message", "label": qr.label.substring(0, 20), "text": actionText } });
+                }
             }
         });
     } else if (hasSales) {
