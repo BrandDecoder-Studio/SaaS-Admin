@@ -56,29 +56,46 @@ window.onload = () => {
 
     onAuthStateChanged(auth, async (user) => {
         if (user) {
-            setText('user-display', user.email); 
-            if(document.getElementById('btn-logout')) document.getElementById('btn-logout').style.display = 'block';
-            
-            const isSuper = await checkSuperAdmin(user.email); 
-            window.isSuperUser = isSuper; 
-            
+            setText('user-display', user.email);
+            if (document.getElementById('btn-logout')) document.getElementById('btn-logout').style.display = 'block';
+
+            const isSuper = await checkSuperAdmin(user.email);
+            window.isSuperUser = isSuper;
+
+            const roleBadge = document.getElementById('role-badge');
+            if (roleBadge) roleBadge.style.display = 'none';
+            ['admin-topup-panel', 'btn-create-client', 'btn-view-applications', 'btn-settle-agent'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+
             if (isSuper) {
-                document.getElementById('role-badge').style.display = "inline-block";
-                if(document.getElementById('admin-topup-panel')) document.getElementById('admin-topup-panel').style.display = 'block';
-                if(document.getElementById('btn-create-client')) document.getElementById('btn-create-client').style.display = 'inline-block';
-                if(document.getElementById('btn-view-applications')) document.getElementById('btn-view-applications').style.display = 'inline-block'; 
-                
-                // 🌟 [新增] 解鎖 Super Admin 專屬的「代理商結算」按鈕
-                if(document.getElementById('btn-settle-agent')) document.getElementById('btn-settle-agent').style.display = 'inline-block';
-            
-                window.showDashboard(); 
-                window.loadClientsForSuperAdmin(); 
-                if(window.updatePendingAppCount) window.updatePendingAppCount(); 
-            } else {
-                window.showDashboard(); 
-                loadClientForUser(user.email);
+                if (roleBadge) roleBadge.style.display = 'inline-block';
+                if (document.getElementById('admin-topup-panel')) document.getElementById('admin-topup-panel').style.display = 'block';
+                if (document.getElementById('btn-create-client')) document.getElementById('btn-create-client').style.display = 'inline-block';
+                if (document.getElementById('btn-view-applications')) document.getElementById('btn-view-applications').style.display = 'inline-block';
+                if (document.getElementById('btn-settle-agent')) document.getElementById('btn-settle-agent').style.display = 'inline-block';
+
+                window.showDashboard();
+                window.loadClientsForSuperAdmin();
+                if (window.updatePendingAppCount) window.updatePendingAppCount();
+                return;
             }
-        } else { switchView('login-view'); }
+
+            const snap = await API.getClientsByEmail(user.email);
+            if (!snap.empty) {
+                const doc = snap.docs[0];
+                window.openClientDetail(doc.id, doc.data().name, doc.data().dbId || doc.id);
+                return;
+            }
+
+            setText('no-access-email', user.email);
+            switchView('no-access-view');
+        } else {
+            window.isSuperUser = false;
+            switchView('login-view');
+            if (document.getElementById('btn-logout')) document.getElementById('btn-logout').style.display = 'none';
+        }
     });
 };
 
@@ -87,15 +104,6 @@ window.showDashboard = async () => { switchView('dashboard-view'); if (window.is
 window.loadClientsForSuperAdmin = async () => { 
     toggleLoader('loader-list', true); 
     renderClientList(await API.getAllClients()); 
-}
-
-async function loadClientForUser(email) { 
-    const snap = await API.getClientsByEmail(email); 
-    toggleLoader('loader-list', false); 
-    if (!snap.empty) { 
-        const doc = snap.docs[0]; 
-        window.openClientDetail(doc.id, doc.data().name, doc.data().dbId || doc.id); 
-    } 
 }
 
 function renderClientList(snap) {

@@ -4,10 +4,13 @@
  */
 
 export function switchView(viewId) {
-    const views = ['login-view', 'dashboard-view', 'detail-view'];
+    const views = ['login-view', 'no-access-view', 'dashboard-view', 'detail-view'];
     views.forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.style.display = 'none';
+        if (el) {
+            el.style.display = 'none';
+            el.classList.remove('active-section');
+        }
     });
     const target = document.getElementById(viewId);
     if (target) {
